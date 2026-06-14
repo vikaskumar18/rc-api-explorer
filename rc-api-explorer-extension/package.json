@@ -3,7 +3,7 @@
   "displayName": "Revenue Cloud API Explorer",
   "description": "Explore, browse and execute Salesforce Revenue Cloud REST APIs directly from VS Code",
   "version": "1.0.0",
-  "publisher": "salesforce-revenue-cloud",
+  "publisher": "vikaskumar18",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
   "icon": "resources/icon.png",

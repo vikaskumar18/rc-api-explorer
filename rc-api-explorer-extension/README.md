@@ -27,15 +27,22 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ## Installation
 
-Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
+Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest).
 
+**Option A — Command line**
 ```bash
 code --install-extension rc-api-explorer-1.0.0.vsix
 ```
 
-Or install via the VS Code Extensions panel → **Install from VSIX…**
+**Option B — VS Code UI (no terminal needed)**
+1. Open VS Code
+2. Go to the **Extensions** view (`Cmd+Shift+X` on Mac / `Ctrl+Shift+X` on Windows)
+3. Click the **`...`** menu (top-right of the Extensions panel)
+4. Select **Install from VSIX…**
+5. Browse to and select the downloaded `rc-api-explorer-1.0.0.vsix` file
+6. Click **Install**
 
-After installing, reload VS Code. The extension activates automatically on startup.
+After installing, reload VS Code when prompted. The extension activates automatically on startup.
 
 ---
 

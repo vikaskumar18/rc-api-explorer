@@ -4,6 +4,10 @@
   "description": "Explore, browse and execute Salesforce Revenue Cloud REST APIs directly from VS Code",
   "version": "1.0.0",
   "publisher": "vikaskumar18",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vikaskumar18/rc-api-explorer"
+  },
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
   "icon": "resources/icon.png",

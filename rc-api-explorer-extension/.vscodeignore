@@ -1,0 +1,16 @@
+.vscode/**
+src/**
+out/**
+.gitignore
+tsconfig.json
+esbuild.js
+**/*.map
+dist/lib/**
+dist/apiExplorerPanel.js
+
+# Exclude dev-only node_modules — keep runtime deps (@salesforce/core etc.)
+node_modules/.bin/**
+node_modules/@types/**
+node_modules/typescript/**
+node_modules/@vscode/vsce/**
+node_modules/esbuild/**

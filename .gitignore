@@ -1,0 +1,18 @@
+# PDFs (large source documents)
+*.pdf
+
+# Extension build artifacts
+rc-api-explorer-extension/node_modules/
+rc-api-explorer-extension/dist/
+rc-api-explorer-extension/out/
+rc-api-explorer-extension/*.vsix
+
+# Source maps
+**/*.map
+
+# VS Code local settings
+.vscode/settings.json
+.vscode/launch.json
+
+# macOS
+.DS_Store

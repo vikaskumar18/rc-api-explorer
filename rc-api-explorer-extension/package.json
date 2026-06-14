@@ -1,0 +1,112 @@
+{
+  "name": "rc-api-explorer",
+  "displayName": "Revenue Cloud API Explorer",
+  "description": "Explore, browse and execute Salesforce Revenue Cloud REST APIs directly from VS Code",
+  "version": "1.0.0",
+  "publisher": "salesforce-revenue-cloud",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "icon": "resources/icon.png",
+  "main": "./dist/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rcApiExplorer",
+          "title": "Revenue Cloud API Explorer",
+          "icon": "resources/icon-activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "rcApiExplorer": [
+        {
+          "id": "rcApiExplorer.runsView",
+          "name": "Run History"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "rcApiExplorer.openPanel",
+        "title": "Revenue Cloud: Open API Explorer"
+      },
+      {
+        "command": "rcApiExplorer.refreshOrgs",
+        "title": "Revenue Cloud: Refresh Org List"
+      },
+      {
+        "command": "rcApiExplorer.refreshRuns",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "rcApiExplorer.relaunchRun",
+        "title": "Relaunch",
+        "icon": "$(run)"
+      },
+      {
+        "command": "rcApiExplorer.inspectRun",
+        "title": "Inspect",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "rcApiExplorer.deleteRun",
+        "title": "Delete",
+        "icon": "$(trash)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "rcApiExplorer.openPanel" },
+        { "command": "rcApiExplorer.refreshOrgs" }
+      ],
+      "view/title": [
+        {
+          "command": "rcApiExplorer.refreshRuns",
+          "when": "view == rcApiExplorer.runsView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "rcApiExplorer.relaunchRun",
+          "when": "view == rcApiExplorer.runsView && viewItem == run",
+          "group": "inline@1"
+        },
+        {
+          "command": "rcApiExplorer.inspectRun",
+          "when": "view == rcApiExplorer.runsView && viewItem == run",
+          "group": "inline@2"
+        },
+        {
+          "command": "rcApiExplorer.deleteRun",
+          "when": "view == rcApiExplorer.runsView && viewItem == run",
+          "group": "inline@3"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "rcApiExplorer.openPanel",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "npx tsc -p ./",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js && npx @vscode/vsce package --allow-missing-repository"
+  },
+  "dependencies": {
+    "@salesforce/core": "^8.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  }
+}

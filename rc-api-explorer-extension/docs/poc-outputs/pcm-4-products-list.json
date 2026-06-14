@@ -1,0 +1,66 @@
+{
+    "correlationId": "poc-pcm4-full",
+    "facets": [],
+    "products": [
+        {
+            "additionalFields": {
+                "ProductCode": "BUND-SUB-ADM"
+            },
+            "attributeCategory": [],
+            "attributes": [],
+            "catalogs": [
+                {
+                    "id": "0ZSAU000000ANZd4AO",
+                    "name": "CAR and LCV"
+                }
+            ],
+            "categories": [
+                {
+                    "catalogId": "0ZSAU000000ANZd4AO",
+                    "id": "0ZGAU000000BC2h4AG",
+                    "name": "Configurable",
+                    "subCategories": []
+                }
+            ],
+            "childProducts": [],
+            "configureDuringSale": "Allowed",
+            "displayUrl": "/resource/SUNProductImages/ImageZipFileV1/offers-adm.jpg",
+            "id": "01tSa00000AzpIaIAJ",
+            "isActive": true,
+            "isAssetizable": true,
+            "isSoldOnlyWithOtherProds": false,
+            "name": "ADM Offer",
+            "nodeType": "bundleProduct",
+            "productClassification": {
+                "id": "11BAU00000EUCaw2AH"
+            },
+            "productCode": "BUND-SUB-ADM",
+            "productComponentGroups": [],
+            "productSellingModelOptions": [
+                {
+                    "id": "0iOSa00000007SjMAI",
+                    "isDefault": true,
+                    "productId": "01tSa00000AzpIaIAJ",
+                    "productSellingModel": {
+                        "doesAutoRenewByDefault": false,
+                        "id": "0jPSa00000000MeMAI",
+                        "name": "Evergreen - Monthly",
+                        "pricingTerm": 1,
+                        "pricingTermUnit": "Months",
+                        "sellingModelType": "Evergreen",
+                        "status": "Active"
+                    }
+                }
+            ],
+            "productSpecificationType": {
+                "name": "Commercial"
+            },
+            "productUnitOfMeasures": []
+        }
+    ],
+    "status": {
+        "code": "200",
+        "errors": [],
+        "message": "Successfully fetched Product records."
+    }
+}

@@ -1,0 +1,361 @@
+# Revenue Cloud API Explorer
+
+A VS Code extension for exploring, testing, and chaining Salesforce Revenue Cloud REST APIs directly from your editor — no Postman, no manual cURL, no token juggling.
+
+---
+
+## Features
+
+- **147 endpoints** across 9 Revenue Cloud modules, with pre-filled request bodies and parameter docs
+- **Multi-step playbooks** — run chained API flows (CPQ quote, asset amendment, DRO orchestration, billing) with a single click
+- **Live org execution** — reads your `sf` CLI auth automatically, no copy-pasting tokens
+- **PST Builder** — visual tool to build Place Sales Transaction payloads (inserts, patches, deletes, bundles)
+- **Swap Builder** — multi-asset swap payload builder with cURL / Apex / JS copy
+- **Run History** — every execution saved locally; replay or inspect any previous run
+- **Environment variables** — define named variable sets per org and reuse across requests
+- **Custom requests** — save your own endpoints alongside the built-in ones
+- **Custom playbooks** — build and persist your own multi-step API chains
+
+---
+
+## Requirements
+
+- **VS Code** 1.85+
+- **Salesforce CLI** (`sf`) installed and authenticated: `sf org login web --alias myorg`
+
+---
+
+## Installation
+
+```bash
+# From the VSIX file
+code --install-extension rc-api-explorer-1.0.0.vsix
+```
+
+Or install via the VS Code Extensions panel → **Install from VSIX…**
+
+After installing, reload VS Code. The extension activates automatically on startup.
+
+---
+
+## Opening the Panel
+
+Three ways:
+
+| Method | Action |
+|--------|--------|
+| **Keyboard** | `Cmd+Shift+R` (Mac) / `Ctrl+Shift+R` (Windows/Linux) |
+| **Command Palette** | `Revenue Cloud: Open API Explorer` |
+| **Activity Bar** | Click the ⚡ icon in the left sidebar |
+
+---
+
+## Layout
+
+```
+┌──────────────────────┬─────────────────────────────────────────────┐
+│  SIDEBAR             │  MAIN PANEL (tabs)                          │
+│                      │                                             │
+│  Org selector        │  Endpoint detail / Try It / Response        │
+│  API version         │  PST Builder                                │
+│  Search endpoints    │  Swap Builder                               │
+│  Category filters    │  Global Search tab                          │
+│  Endpoint list       │                                             │
+│                      │                                             │
+│  [Rail buttons]      │                                             │
+│  Endpoints           │                                             │
+│  Playbooks           │                                             │
+│  Environments        │                                             │
+│  History             │                                             │
+└──────────────────────┴─────────────────────────────────────────────┘
+```
+
+---
+
+## Selecting an Org
+
+1. The **org dropdown** in the top-left populates automatically from your `sf` CLI auth (~/.sfdx).
+2. Select the org you want to execute against.
+3. The status line shows the resolved username and session state.
+4. If you see **⚠ Session expired**, re-authenticate: `sf org login web --alias <your-alias>`
+5. Click **⟳** to refresh the org list after logging in.
+
+> **Tip:** The extension pre-warms your token as soon as you select an org, so the first Execute is fast.
+
+---
+
+## Default API Version
+
+The **`API ver`** input (next to the Refresh button in the sidebar) sets the default version for every endpoint. Default is `v66.0`.
+
+- Change it once → all open tabs and newly opened tabs update
+- Each tab's version badge is independently editable if one specific endpoint needs a different version
+- Most RC endpoints work on `v66.0`; use `v67.0` for the newest features (DRO, swap, recommendations)
+
+---
+
+## Exploring Endpoints
+
+### Search
+Type in the search box to filter endpoints by name, path, or keyword.
+
+### Category Filters
+Click the filter chips to narrow by module:
+
+| Filter | Module |
+|--------|--------|
+| PCM | Product Catalog Management (18 endpoints) |
+| Discovery | CPQ / Product Discovery (11 endpoints) |
+| Pricing | Salesforce Pricing (20 endpoints) |
+| Rate | Rate Management (3 endpoints) |
+| Config | Product Configurator (13 endpoints) |
+| TXN | Transaction Management (16 endpoints) |
+| Usage | Usage Management (11 endpoints) |
+| Billing | Billing (48 endpoints) |
+| DRO | Dynamic Revenue Orchestrator (8 endpoints) |
+
+### Collapse / Expand
+Use **⊖ Collapse All** / **⊕ Expand All** to manage the list.
+
+---
+
+## Executing an Endpoint
+
+1. Click an endpoint to open it in a tab
+2. Switch to the **▶ Try It** sub-tab
+3. Select your org from the dropdown
+4. Edit the **Method**, **API version**, or **Path** if needed
+5. Fill in **Path Parameters** and **Query Parameters** (if any)
+6. Edit the **Request Body** (JSON) — pre-filled with a working example
+7. Press **▶ Execute** or `Cmd+Enter` / `Ctrl+Enter`
+
+The response appears below with:
+- HTTP status code and duration
+- Pretty-printed JSON
+- **Search** to filter response lines
+- **Copy Full** button if the response is large
+- **Save** buttons to capture IDs as environment variables
+
+---
+
+## Path Parameters
+
+Endpoints with `{paramName}` in the path show a **Path Parameters** section. Fill them in manually or click **⊕** to browse your org's records and pick an ID.
+
+---
+
+## Environment Variables
+
+Variables let you store IDs and values and inject them automatically into request bodies and paths.
+
+### Creating an Environment
+1. Click the 🌐 (Environments) rail button
+2. Click **+ New Environment**
+3. Give it a name and select an org
+4. Add key/value pairs (e.g. `ACCOUNT_ID` → `001XXXXXXXXXXXX`)
+
+### Using Variables
+Reference variables in request bodies as `{{VARIABLE_NAME}}`:
+```json
+{
+  "accountId": "{{ACCOUNT_ID}}",
+  "quoteId": "{{QUOTE_ID}}"
+}
+```
+
+Variables from the active environment are substituted automatically before execution.
+
+### Quick Variable Fill
+If an endpoint body contains `{{VARIABLE}}` placeholders, a **Quick Variable Fill** panel appears above the body editor — fill them in without editing the JSON directly.
+
+---
+
+## Playbooks (Multi-step API Flows)
+
+Playbooks chain multiple API calls together, passing outputs from one step as inputs to the next.
+
+### Built-in Playbooks
+
+| Playbook | Steps | Purpose |
+|----------|-------|---------|
+| **Catalog Discovery Flow** | 4 | Fetch catalogs → categories → products → product detail |
+| **CPQ Quote Flow** | 4 | Fetch CPQ catalogs → categories → products → qualification |
+| **Product Setup Flow** | 4 | Classification list → products list → deep clone → related records |
+| **Asset Amendment Flow** | 3 | Amend asset → submit to DRO → decompose |
+| **Order Fulfillment Flow** | 3 | Place order → orchestrate → get point of no return |
+| **Invoice Billing Flow** | 3 | Create billing schedules → generate invoices → post invoices |
+| **Usage Summary Flow** | 3 | Get asset usage → invoke summary creation → process overages |
+
+### Running a Playbook
+1. Click the 🎯 (Playbooks) rail button
+2. Select a playbook
+3. Select your org
+4. Click **▶ Run All** to execute all steps in sequence
+5. Or click **▶ Run from Step N** to resume from a specific step
+
+Each step shows its status (pending / running / done / error) in a timeline. IDs extracted from earlier steps are automatically injected into later ones.
+
+### Custom Playbooks
+1. In the Playbooks rail, click **+ New Playbook**
+2. Add steps: pick an endpoint, set the body, define extraction rules (which field from the response to carry forward)
+3. Save — stored in `.rc-explorer/custom-playbooks.json` in your workspace
+4. Run exactly like built-in playbooks
+
+---
+
+## PST Builder (Place Sales Transaction)
+
+Builds the `AsyncOperationTracker` payload for the Revenue Cloud PST API visually.
+
+1. Click **⚡ Open PST Builder** on any Transaction endpoint, or from the tab bar
+2. Choose the operation type: **Insert**, **Patch**, or **Delete**
+3. Fill in the fields for each line item
+4. Add child items (bundles) using the **+ Child** button
+5. Use **▶ Execute** to POST directly, or **Apex / cURL / JS** to copy the payload
+
+---
+
+## Swap Builder
+
+Builds multi-asset swap payloads for `POST /revenue/transaction-management/assets/actions/swap`.
+
+1. Click **⇆ Open Swap Builder** from a Transaction endpoint
+2. Add assets to swap using the **+ Asset** tab
+3. Fill in `assetId`, `newProductId`, and other required fields
+4. **Execute**, or copy as cURL / Apex / JS
+
+---
+
+## Run History
+
+Every execution is saved automatically in `.rc-explorer/runs/` in your workspace.
+
+- Click the 🕒 (History) rail button to browse past runs
+- Click **👁 Inspect** to load a run's response back into view
+- Click **▶ Replay** to re-execute with the same parameters
+- Click **🗑 Delete** to remove a run
+
+The Run History tree view in the VS Code sidebar (left panel) also shows recent runs with quick-access buttons.
+
+---
+
+## Custom Requests
+
+Save your own API calls alongside the built-in endpoints.
+
+1. Click **+ Custom Request** in the endpoints list
+2. Enter a name, method, path, headers, and body
+3. Save — appears in the endpoint list under "Custom"
+4. Execute exactly like built-in endpoints
+
+---
+
+## cURL / Apex / JS Export
+
+On any endpoint's Try It tab, after filling in the parameters:
+
+- **cURL** — copies a ready-to-run `curl` command with your org's token
+- **Apex** — copies an `HttpRequest` snippet for use in anonymous Apex
+- **JS** — copies a `fetch()` snippet
+
+These are available before execution — you don't need to run the request first.
+
+---
+
+## Diff / Baseline
+
+1. Click **⬛ Baseline** to capture the current response as a reference
+2. Make changes (different body, different org, different version)
+3. Click **Diff** to see what changed between the baseline and new response
+
+---
+
+## Validate
+
+Click **✓ Validate** to check your request body JSON for syntax errors before executing.
+
+---
+
+## Org Record Picker
+
+On any parameter input, click the **⊕** button to open a record browser:
+1. The picker searches your org for matching records
+2. Filter by name or ID
+3. Click a record to paste its ID into the field
+
+---
+
+## Troubleshooting
+
+### "Session expired" error
+```
+sf org login web --alias <your-alias>
+```
+Then click **⟳ Refresh orgs** in the extension.
+
+### Org list is empty
+- Confirm `sf org list` works in your terminal
+- Click **⟳ Refresh orgs**
+- Check **Log** button in the sidebar for error details
+
+### HTTP 400 on an endpoint
+- Check the **API version** — some endpoints only exist from a specific version (e.g. `v66.0`)
+- Verify required fields are filled in the request body
+- Check that the org has the relevant RC feature enabled and permissions assigned
+
+### HTTP 403 / insufficient privileges
+Some endpoints require specific permission sets. Common ones:
+
+| Feature | Permission Set |
+|---------|---------------|
+| Asset amendment/renewal | `RevLifecycleManagementInitiateAmendmentApi` |
+| DRO orchestration | `RevLifecycleManagementOrchestrationApi` |
+| Usage management | `RevLifecycleManagementUsageApi` |
+
+---
+
+## Local Storage
+
+All extension data is stored in your workspace under `.rc-explorer/`:
+
+```
+.rc-explorer/
+  runs/              # execution history (one JSON per run)
+  custom-playbooks.json  # your custom playbook definitions
+```
+
+Environment variable sets are stored in VS Code's extension storage (persisted across workspaces).
+
+---
+
+## Building from Source
+
+```bash
+cd rc-api-explorer-extension
+npm install
+npm run package        # builds + packages → rc-api-explorer-1.0.0.vsix
+code --install-extension rc-api-explorer-1.0.0.vsix
+```
+
+For development with live rebuild:
+```bash
+npm run watch
+```
+
+---
+
+## API Reference
+
+Full API documentation is in `rc-api-explorer-extension/docs/api-skills/`:
+
+| File | Coverage |
+|------|----------|
+| `revenue-cloud-pcm-apis.md` | Product Catalog Management |
+| `revenue-cloud-discovery-apis.md` | CPQ / Discovery |
+| `revenue-cloud-pricing-apis.md` | Salesforce Pricing |
+| `revenue-cloud-transaction-apis.md` | Transaction Management |
+| `revenue-cloud-dro-apis.md` | DRO / Fulfillment |
+| `revenue-cloud-usage-apis.md` | Usage Management |
+| `revenue-cloud-billing-apis.md` | Billing |
+| `revenue-cloud-rate-apis.md` | Rate Management |
+| `revenue-cloud-configurator-apis.md` | Product Configurator |

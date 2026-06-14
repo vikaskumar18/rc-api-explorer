@@ -367,3 +367,12 @@ Full API documentation is in `rc-api-explorer-extension/docs/api-skills/`:
 | `revenue-cloud-billing-apis.md` | Billing |
 | `revenue-cloud-rate-apis.md` | Rate Management |
 | `revenue-cloud-configurator-apis.md` | Product Configurator |
+
+---
+
+## Feedback
+
+Found a bug, missing endpoint, or want a new playbook?
+
+- **Feedback form** → https://docs.google.com/forms/d/1ClrwfvNd4MJ4oF0zdUPAnsBRogZ5V9D7X9sk6bUwGIM/viewform
+- **GitHub Issues** → https://github.com/vikaskumar18/rc-api-explorer/issues

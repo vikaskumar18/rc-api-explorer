@@ -1,5 +1,8 @@
 # Revenue Cloud API Explorer
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vikas-builds.rc-api-explorer?label=VS%20Code%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=vikas-builds.rc-api-explorer)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/vikas-builds.rc-api-explorer)](https://marketplace.visualstudio.com/items?itemName=vikas-builds.rc-api-explorer)
+
 A VS Code extension for exploring, testing, and chaining Salesforce Revenue Cloud REST APIs directly from your editor — no Postman, no manual cURL, no token juggling.
 
 ---
@@ -27,14 +30,23 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ## Installation
 
-Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest).
+**Option A — VS Code Marketplace (recommended)**
 
-**Option A — Command line**
+Search **"Revenue Cloud API Explorer"** in the VS Code Extensions panel, or install via command line:
+```bash
+code --install-extension vikas-builds.rc-api-explorer
+```
+Or open directly: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vikas-builds.rc-api-explorer)
+
+**Option B — VSIX file**
+
+Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
+
 ```bash
 code --install-extension rc-api-explorer-1.0.0.vsix
 ```
 
-**Option B — VS Code UI (no terminal needed)**
+Or via VS Code UI (no terminal needed):
 1. Open VS Code
 2. Go to the **Extensions** view (`Cmd+Shift+X` on Mac / `Ctrl+Shift+X` on Windows)
 3. Click the **`...`** menu (top-right of the Extensions panel)

@@ -1,5 +1,8 @@
 # Revenue Cloud API Explorer
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vikas-builds.rc-api-explorer?label=VS%20Code%20Marketplace&logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=vikas-builds.rc-api-explorer)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/vikas-builds.rc-api-explorer)](https://marketplace.visualstudio.com/items?itemName=vikas-builds.rc-api-explorer)
+
 A VS Code extension for exploring, testing, and chaining Salesforce Revenue Cloud REST APIs directly from your editor — no Postman, no manual cURL, no token juggling.
 
 ---

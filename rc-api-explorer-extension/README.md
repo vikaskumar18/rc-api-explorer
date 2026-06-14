@@ -27,8 +27,9 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ## Installation
 
+Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
+
 ```bash
-# From the VSIX file
 code --install-extension rc-api-explorer-1.0.0.vsix
 ```
 

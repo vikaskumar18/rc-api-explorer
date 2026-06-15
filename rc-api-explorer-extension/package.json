@@ -2,7 +2,7 @@
   "name": "rc-api-explorer",
   "displayName": "Revenue Cloud API Explorer",
   "description": "Explore, browse and execute Salesforce Revenue Cloud REST APIs directly from VS Code",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "vikas-builds",
   "repository": {
     "type": "git",

@@ -1,10 +1,6 @@
 import { AuthInfo } from '@salesforce/core';
 import * as https from 'https';
 import * as http from 'http';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileP = promisify(execFile);
 
 export interface OrgInfo {
   alias: string;
@@ -18,9 +14,8 @@ export interface OrgCredentials {
   accessToken: string;
 }
 
-// In-memory token cache — avoids repeated AuthInfo.create() calls within a session
 const tokenCache = new Map<string, { creds: OrgCredentials; fetchedAt: number }>();
-const TOKEN_TTL_MS = 25 * 60 * 1000; // 25 minutes
+const TOKEN_TTL_MS = 25 * 60 * 1000;
 
 function getCached(key: string): OrgCredentials | null {
   const entry = tokenCache.get(key);
@@ -47,49 +42,53 @@ export async function listOrgs(): Promise<OrgInfo[]> {
   }));
 }
 
-// Fetch a live access token via `sf org auth show-access-token`.
-// AuthInfo.getFields() returns the stored (possibly stale) token from disk.
-// The CLI command triggers an actual OAuth token refresh and always returns a live token.
-async function fetchLiveToken(aliasOrUsername: string): Promise<OrgCredentials> {
-  // Resolve instance URL from AuthInfo (doesn't need a live token)
+async function resolveAuthInfo(aliasOrUsername: string): Promise<{ authInfo: AuthInfo; instanceUrl: string }> {
   const auths = await AuthInfo.listAllAuthorizations();
   const match = auths.find(a => a.aliases?.includes(aliasOrUsername) || a.username === aliasOrUsername);
-  const instanceUrl = match?.instanceUrl ?? '';
-
-  const sfBin = process.platform === 'win32' ? 'sf.cmd' : 'sf';
-  let stdout: string;
+  if (!match) { throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`); }
   try {
-    const result = await execFileP(sfBin, ['org', 'auth', 'show-access-token', '--target-org', aliasOrUsername, '--json'], {
-      env: { ...process.env },
-      timeout: 15_000,
-    });
-    stdout = result.stdout;
-  } catch (e: any) {
-    // execFile rejects on non-zero exit; stdout may still have the JSON
-    stdout = e.stdout ?? '';
-    if (!stdout) { throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`); }
+    const authInfo = await AuthInfo.create({ username: match.username });
+    return { authInfo, instanceUrl: match.instanceUrl ?? '' };
+  } catch {
+    throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
   }
+}
 
-  let parsed: any;
-  try { parsed = JSON.parse(stdout); } catch { throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`); }
-
-  const accessToken: string = parsed?.result?.accessToken ?? '';
+// Reads stored token from disk — no network call, no refresh attempt.
+async function fetchStoredToken(aliasOrUsername: string): Promise<OrgCredentials> {
+  const { authInfo, instanceUrl } = await resolveAuthInfo(aliasOrUsername);
+  const fields = authInfo.getFields(true);
+  const accessToken: string = (fields as any).accessToken ?? '';
+  const resolvedUrl: string = (fields as any).instanceUrl ?? instanceUrl;
   if (!accessToken || accessToken.startsWith('[REDACTED]')) {
     throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
   }
+  return { instanceUrl: resolvedUrl, accessToken };
+}
 
-  const resolvedUrl = parsed?.result?.instanceUrl ?? instanceUrl;
+// Called only after a real 401 — attempts OAuth refresh then returns fresh token.
+async function refreshAndFetch(aliasOrUsername: string): Promise<OrgCredentials> {
+  const { authInfo, instanceUrl } = await resolveAuthInfo(aliasOrUsername);
+  try {
+    await authInfo.refreshAuth();
+  } catch {
+    throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
+  }
+  const fields = authInfo.getFields(true);
+  const accessToken: string = (fields as any).accessToken ?? '';
+  const resolvedUrl: string = (fields as any).instanceUrl ?? instanceUrl;
+  if (!accessToken || accessToken.startsWith('[REDACTED]')) {
+    throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
+  }
   return { instanceUrl: resolvedUrl, accessToken };
 }
 
 export async function getOrgCredentials(aliasOrUsername: string, forceRefresh = false): Promise<OrgCredentials> {
-  // In-memory cache — bypass on force-refresh (post-401 retry or pre-warm)
   if (!forceRefresh) {
     const cached = getCached(aliasOrUsername);
     if (cached) { return cached; }
   }
-
-  const creds = await fetchLiveToken(aliasOrUsername);
+  const creds = await fetchStoredToken(aliasOrUsername);
   setCached(aliasOrUsername, creds);
   return creds;
 }
@@ -130,11 +129,12 @@ export async function callApi(aliasOrUsername: string, method: string, apiPath: 
     const bodyArg = ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase()) ? body : undefined;
     let { status, body: rawBody } = await httpRequest(fullUrl, method, creds.accessToken, bodyArg, extraHeaders);
 
-    // On 401, force-refresh token (bypasses cache, always calls refreshAuth) and retry once
+    // On 401: attempt OAuth refresh (one time) and retry
     if (status === 401) {
       try {
         invalidateCache(aliasOrUsername);
-        const fresh = await getOrgCredentials(aliasOrUsername, true);
+        const fresh = await refreshAndFetch(aliasOrUsername);
+        setCached(aliasOrUsername, fresh);
         const retryUrl = apiPath.startsWith('http') ? apiPath : `${fresh.instanceUrl.replace(/\/$/, '')}${apiPath}`;
         const retried = await httpRequest(retryUrl, method, fresh.accessToken, bodyArg, extraHeaders);
         status  = retried.status;
@@ -155,10 +155,9 @@ export async function callApi(aliasOrUsername: string, method: string, apiPath: 
     if (msg.startsWith('SESSION_EXPIRED')) {
       return sessionExpiredResult(aliasOrUsername, Date.now() - start);
     }
-    const isAuthErr = msg.toLowerCase().includes('expired') || msg.toLowerCase().includes('auth') || msg.toLowerCase().includes('token');
     return {
-      status: isAuthErr ? 401 : 0,
-      body: JSON.stringify({ error: msg, hint: isAuthErr ? `Run: sf org login web --alias ${aliasOrUsername}` : undefined }, null, 2),
+      status: 0,
+      body: JSON.stringify({ error: msg }, null, 2),
       durationMs: Date.now() - start,
     };
   }
@@ -176,15 +175,11 @@ function sessionExpiredResult(aliasOrUsername: string, durationMs: number): { st
   };
 }
 
-// Fires token fetch in background on org select so it's cached by the time Execute is hit.
-// Returns false if session is confirmed expired, true otherwise.
+// Pre-warms the token cache on org select. Just reads stored token — never attempts refresh.
+// Returns false only if the org is completely unknown (not in auth store).
 export function preWarmToken(aliasOrUsername: string): Promise<boolean> {
-  // Always force-refresh on org select — ensures stale web-login tokens are
-  // replaced before the user hits Execute.
-  return getOrgCredentials(aliasOrUsername, true)
+  invalidateCache(aliasOrUsername);
+  return getOrgCredentials(aliasOrUsername)
     .then(() => true)
-    .catch((err: any) => {
-      if (err?.message?.startsWith('SESSION_EXPIRED')) { return false; }
-      return true;
-    });
+    .catch(() => false);
 }

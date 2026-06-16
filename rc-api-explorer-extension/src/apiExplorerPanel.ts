@@ -773,7 +773,7 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
 .btn-sec:disabled{opacity:.4;cursor:not-allowed}
 .resp-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:13px;
   font-family:monospace;font-size:11px;line-height:1.6;color:var(--fg);white-space:pre-wrap;
-  word-break:break-all;min-height:56px;max-height:400px;overflow-y:auto}
+  word-break:break-all;min-height:56px;max-height:400px;overflow-y:auto;overflow-x:auto;resize:vertical}
 .status-pill{display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:7px}
 .s2xx{background:#0d3b2e;color:var(--green)}.s4xx{background:#3b2d0d;color:var(--yellow)}
 .s5xx{background:#3b0d0d;color:var(--red)}.serr{background:#3b0d0d;color:var(--red)}
@@ -836,6 +836,8 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
   <button class="rail-btn" onclick="switchRail('playbooks')" title="Playbooks" data-panel="playbooks">&#9935;</button>
   <button class="rail-btn" onclick="switchRail('envs')"      title="Environments" data-panel="envs">&#127758;</button>
   <button class="rail-btn" onclick="switchRail('history')"   title="History" data-panel="history">&#128336;</button>
+  <button class="rail-btn" onclick="openPstBuilderTab()"     title="PST Builder (Quote)" style="font-size:14px">&#9889;</button>
+  <button class="rail-btn" onclick="openOrderBuilderTab()"   title="Order Builder" style="font-size:14px">&#128220;</button>
 </div>
 
 <!-- SIDEBAR -->

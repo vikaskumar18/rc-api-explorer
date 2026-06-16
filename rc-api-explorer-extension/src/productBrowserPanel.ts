@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import { listOrgs, callApi, preWarmToken, OrgInfo } from './lib/orgAuth';
 
 const API_VERSION     = 'v67.0';
-const CFG_VERSION     = 'v60.0';
-const PCM_VERSION     = 'v60.0';
+const CFG_VERSION     = 'v66.0';
+const PCM_VERSION     = 'v66.0';
 const TXN_VERSION     = 'v63.0';
 
 export class ProductBrowserPanel {
@@ -146,10 +146,10 @@ export class ProductBrowserPanel {
         else if (msg.catalogId) { payload.catalogIds   = [msg.catalogId]; }
         if (msg.searchTerm)     { payload.searchTerm   = msg.searchTerm; }
         const prodBody = JSON.stringify(payload);
-        const prodPath = this.sfPath('v61.0', '/connect/pcm/products');
+        const prodPath = this.sfPath(PCM_VERSION, '/connect/pcm/products');
         const r = await callApi(msg.orgAlias, 'POST', prodPath, prodBody);
         this.post({ type: 'products', offset: msg.offset ?? 0, status: r.status, body: r.body });
-        this.postApiCall('POST', prodPath, 'v61.0', prodBody, r);
+        this.postApiCall('POST', prodPath, PCM_VERSION, prodBody, r);
         break;
       }
 
@@ -191,6 +191,14 @@ export class ProductBrowserPanel {
         const r = await callApi(msg.orgAlias, 'GET', pdPath);
         this.post({ type: 'productDetail', productId: msg.productId, status: r.status, body: r.body });
         this.postApiCall('GET', pdPath, PCM_VERSION, null, r);
+        break;
+      }
+
+      case 'getBmSubProduct': {
+        const spPath = this.sfPath(PCM_VERSION, `/connect/pcm/products/${msg.compId}`);
+        const sr = await callApi(msg.orgAlias, 'GET', spPath);
+        this.post({ type: 'bmSubProductDetail', compId: msg.compId, status: sr.status, body: sr.body });
+        this.postApiCall('GET', spPath, PCM_VERSION, null, sr);
         break;
       }
 
@@ -321,7 +329,9 @@ input:focus,select:focus{outline:1px solid var(--pri)}
 .cart-empty{color:var(--fg3);font-size:12px;text-align:center;padding:16px}
 #right-actions{padding:8px 10px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border)}
 /* Bottom panel — Log + API Inspector */
-#bottom-panel{height:160px;min-height:120px;border-top:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;flex-shrink:0}
+#bottom-panel{height:260px;min-height:80px;max-height:80vh;border-top:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;flex-shrink:0}
+#bp-resize-handle{height:5px;cursor:ns-resize;background:transparent;flex-shrink:0;border-top:2px solid var(--border)}
+#bp-resize-handle:hover{background:var(--acc)}
 .bp-tab-bar{display:flex;align-items:center;gap:2px;padding:2px 6px;border-bottom:1px solid var(--border);flex-shrink:0}
 .bp-tab{background:none;color:var(--fg3);font-size:11px;padding:2px 10px;border-radius:4px;border:none;cursor:pointer;position:relative}
 .bp-tab:hover{color:var(--fg1)}
@@ -497,6 +507,7 @@ input:focus,select:focus{outline:1px solid var(--pri)}
 </div>
 
 <!-- Bottom panel: Log + API Inspector -->
+<div id="bp-resize-handle" onmousedown="startBpResize(event)"></div>
 <div id="bottom-panel">
   <div class="bp-tab-bar">
     <button class="bp-tab active" id="bpt-log" onclick="switchBpTab('log')">Log</button>

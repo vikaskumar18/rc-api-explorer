@@ -458,6 +458,11 @@ function buildEpPanel(panel, tabId, ep){
       '<span style="font-size:11px;color:var(--fg2)">This API is complex — use the visual builder instead.</span>'+
       ' <button class="btn btn-pri" onclick="openPstBuilderTab()" style="font-size:11px;padding:3px 10px">&#9889; Open PST Builder</button>'+
       '</div>'
+    : (ep.id === 'txn-8')
+    ? '<div style="margin:8px 0 10px;padding:8px 10px;background:var(--bg3);border-radius:6px;border-left:3px solid #27ae60">'+
+      '<span style="font-size:11px;color:var(--fg2)">This API is complex — use the visual builder instead.</span>'+
+      ' <button class="btn btn-pri" onclick="openOrderBuilderTab()" style="font-size:11px;padding:3px 10px;background:#27ae60">&#128220; Open Order Builder</button>'+
+      '</div>'
     : (ep.id === 'txn-13')
     ? '<div style="margin:8px 0 10px;padding:8px 10px;background:var(--bg3);border-radius:6px;border-left:3px solid #8e44ad">'+
       '<span style="font-size:11px;color:var(--fg2)">This API is complex — use the visual builder instead.</span>'+
@@ -2242,7 +2247,7 @@ function _buildPstPanel(panel, tabId){
     '</div>'+
     '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
     '<label style="font-size:10px;color:var(--fg2)">Quote Name * <input class="try-inp" id="pst-nq-name-'+tabId+'" placeholder="My Quote" style="width:160px;font-size:11px;padding:2px 5px" oninput="pstState[\''+tabId+'\'].newQuoteFields.name=this.value"></label>'+
-    '<label style="font-size:10px;color:var(--fg2)">Pricebook2Id * <input class="try-inp" id="pst-nq-pb-'+tabId+'" placeholder="01s..." style="width:130px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="pstState[\''+tabId+'\'].newQuoteFields.pricebook2Id=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">Pricebook2Id <span style="color:var(--red)">*</span> <input class="try-inp" id="pst-nq-pb-'+tabId+'" placeholder="01s… (required)" style="width:145px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="pstState[\''+tabId+'\'].newQuoteFields.pricebook2Id=this.value;this.style.borderColor=this.value?\'\':\' var(--red)\'"></label>'+
     '<label style="font-size:10px;color:var(--fg2)">CurrencyIsoCode * <input class="try-inp" id="pst-nq-cur-'+tabId+'" placeholder="USD" style="width:70px;font-size:11px;padding:2px 5px" oninput="pstState[\''+tabId+'\'].newQuoteFields.currencyIsoCode=this.value"></label>'+
     '<label style="font-size:10px;color:var(--fg2)">OpportunityId <input class="try-inp" id="pst-nq-opp-'+tabId+'" placeholder="006... (optional)" style="width:150px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="pstState[\''+tabId+'\'].newQuoteFields.opportunityId=this.value"></label>'+
     '</div>'+
@@ -2466,6 +2471,7 @@ function loadQuoteForPst(tabId){
   s.deletedQliIds = new Set(); s.deletedQlrIds = new Set();
   s.patchedQlis = {}; s.newInserts = []; s.insertCounter = 0;
   s.quoteRecord = null; s.existingAttrs = {};
+  _renderPstTree(tabId);
   const infoEl = document.getElementById('pst-quote-info-'+tabId);
   if(infoEl) infoEl.style.display = 'none';
   setLoadStatus(tabId, 'Loading QLIs…');
@@ -2749,12 +2755,13 @@ function renderInsertCard(ins, depth, tabId){
   html += '</div>';
   // Fields row
   html += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:5px 8px">';
-  html += '<label style="font-size:10px;color:var(--fg2)">Prod <input class="try-inp" value="'+esc(ins.product2Id)+'" placeholder="01t…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'product2Id\',this.value)"></label>';
+  html += '<label style="font-size:10px;color:var(--fg2)">Prod <input class="try-inp" value="'+esc(ins.product2Id)+'" placeholder="01t…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" oninput="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'product2Id\',this.value)"></label>';
   html += '<label style="font-size:10px;color:var(--fg2)">PBE <input class="try-inp" value="'+esc(ins.pbeId)+'" placeholder="01u…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'pbeId\',this.value)"></label>';
   html += '<label style="font-size:10px;color:var(--fg2)">Qty <input type="number" class="try-inp" value="'+esc(ins.qty||'1')+'" min="1" style="width:46px;font-size:11px;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'qty\',this.value)"></label>';
   html += '<label style="font-size:10px;color:var(--fg2)">Freq <input class="try-inp" value="'+esc(ins.billingFreq||'')+'" placeholder="Monthly" style="width:70px;font-size:11px;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'billingFreq\',this.value)"></label>';
   html += '<button class="icon-btn" style="font-size:10px;color:var(--acc);margin-left:auto" onclick="pstAddAttr(\''+tabId+'\',\''+ins.localRef+'\')">+ Attr</button>';
   html += '<button class="icon-btn" style="font-size:10px;color:var(--acc)" onclick="pstAddChildInsert(\''+tabId+'\',\''+ins.localRef+'\',\''+esc(ins.product2Id||ins.localRef)+'\')">+ Child QLI</button>';
+  html += '<button class="icon-btn" style="font-size:10px;color:#7eb5e8;border:1px solid rgba(126,181,232,.4);border-radius:3px;padding:1px 6px" onclick="pstOpenConfigurator(\''+tabId+'\',\''+ins.localRef+'\')" title="Load product structure from PCM API">⚙ Configure</button>';
   html += '</div>';
   // Attr rows
   const attrHtml = _renderAttrRows(ins, tabId);
@@ -3154,7 +3161,11 @@ function _executePstNewQuote(tabId, orgAlias){
   const s = pstState[tabId];
   const nq = s.newQuoteFields;
   if(!nq.name.trim()){ showToast('Quote Name is required.','error'); return; }
-  if(!nq.pricebook2Id.trim()){ showToast('Pricebook2Id is required.','error'); return; }
+  if(!nq.pricebook2Id.trim()){
+    const pbEl = document.getElementById('pst-nq-pb-'+tabId);
+    if(pbEl){ pbEl.style.borderColor='var(--red)'; pbEl.style.boxShadow='0 0 0 2px rgba(220,50,50,.3)'; pbEl.focus(); setTimeout(()=>{ pbEl.style.borderColor=''; pbEl.style.boxShadow=''; },3000); }
+    showToast('Pricebook2Id is required — paste the 01s… ID.','error'); return;
+  }
   if(!nq.currencyIsoCode.trim()){ showToast('CurrencyIsoCode is required (must match all PBE currencies).','error'); return; }
   const bad = s.newInserts.find(ins => !ins.product2Id.trim() || !ins.pbeId.trim());
   if(bad){ showToast('All new QLI rows require Product2Id and PBE Id.','error'); return; }
@@ -4044,6 +4055,906 @@ function _buildSwapReference(){
   '</div></details>'+
 
   '</div>';
+}
+
+// ── Order Builder ─────────────────────────────────────────────────────────────
+
+let orderState = {};  // keyed by tabId
+
+function openOrderBuilderTab(){
+  const existing = tabs.find(t => t.type === 'order-builder');
+  if(existing){ activateTab(existing.id); return; }
+  const tabId = 'tab-' + (++tabCounter);
+  tabs.push({ id: tabId, type: 'order-builder', label: 'Order Builder' });
+  orderState[tabId] = {
+    mode: 'new',           // 'new' | 'patch'
+    orderId: '',
+    accountId: '',
+    effectiveDate: '',
+    pricebook2Id: '',
+    orderName: 'New Order',
+    pricingPref: 'Force',
+    configInput: 'RunAndAllowErrors',
+    configOptions: { validateProductCatalog:true, validateAmendRenewCancel:true, executeConfigurationRules:true, addDefaultConfiguration:true },
+    includeAppUsage: false,
+    items: [],
+    itemCounter: 0,
+    previewActive: false,
+    orgAlias: ''
+  };
+  renderTabBar();
+  const panel = document.createElement('div');
+  panel.id = 'tp-' + tabId;
+  panel.className = 'tab-panel';
+  document.getElementById('detail').appendChild(panel);
+  _buildOrderPanel(panel, tabId);
+  activateTab(tabId);
+}
+
+function _buildOrderPanel(panel, tabId){
+  panel.innerHTML =
+    '<div class="d-title">&#128220; Order Builder</div>'+
+    '<div style="color:var(--fg3);font-size:11px;margin-bottom:14px">Builds payloads for <code>POST /commerce/sales-orders/actions/place</code>. Includes Order anchor, AppUsageAssignment, OrderAction, OrderItems and bundle relationships.</div>'+
+
+    // ── Mode toggle ────────────────────────────────────────────────────────────
+    '<div class="try-sec" style="margin-bottom:10px">'+
+    '<div class="try-lbl">Order</div>'+
+    '<div style="display:flex;gap:12px;margin-bottom:8px">'+
+    '<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--fg2);cursor:pointer">'+
+    '<input type="radio" name="ob-mode-'+tabId+'" value="new" checked onchange="orderBuilderSetMode(\''+tabId+'\',\'new\')"> Create new order</label>'+
+    '<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--fg2);cursor:pointer">'+
+    '<input type="radio" name="ob-mode-'+tabId+'" value="patch" onchange="orderBuilderSetMode(\''+tabId+'\',\'patch\')"> Patch existing order</label>'+
+    '</div>'+
+
+    // New order fields
+    '<div id="ob-new-fields-'+tabId+'">'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+
+    '<label style="font-size:10px;color:var(--fg2)">Name *<br><input class="try-inp" id="ob-name-'+tabId+'" value="New Order" style="width:180px;font-size:11px;padding:2px 5px" oninput="orderState[\''+tabId+'\'].orderName=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">AccountId *<br><input class="try-inp" id="ob-acc-'+tabId+'" placeholder="001..." style="width:160px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="orderState[\''+tabId+'\'].accountId=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">Pricebook2Id *<br><input class="try-inp" id="ob-pb-'+tabId+'" placeholder="01s..." style="width:160px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="orderState[\''+tabId+'\'].pricebook2Id=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">EffectiveDate *<br><input class="try-inp" id="ob-date-'+tabId+'" type="date" style="width:140px;font-size:11px;padding:2px 5px" oninput="orderState[\''+tabId+'\'].effectiveDate=this.value"></label>'+
+    '</div>'+
+    '</div>'+
+
+    // Patch mode — just order ID
+    '<div id="ob-patch-fields-'+tabId+'" style="display:none;margin-bottom:6px">'+
+    '<label style="font-size:10px;color:var(--fg2)">Order Id *<br><input class="try-inp" id="ob-oid-'+tabId+'" placeholder="801..." style="width:220px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="orderState[\''+tabId+'\'].orderId=this.value"></label>'+
+    '</div>'+
+
+    // Options row
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">'+
+    '<label style="font-size:11px;color:var(--fg2)">Pricing</label>'+
+    '<select class="try-sel" onchange="orderState[\''+tabId+'\'].pricingPref=this.value">'+
+    '<option value="Force" selected>Force</option><option value="System">System</option><option value="Skip">Skip</option>'+
+    '</select>'+
+    '<label style="font-size:11px;color:var(--fg2)">Config</label>'+
+    '<select class="try-sel" onchange="orderState[\''+tabId+'\'].configInput=this.value">'+
+    '<option value="RunAndAllowErrors" selected>RunAndAllowErrors</option>'+
+    '<option value="RunAndBlockErrors">RunAndBlockErrors</option>'+
+    '<option value="Skip">Skip</option>'+
+    '</select>'+
+    '<label style="font-size:11px;color:var(--fg2);display:flex;align-items:center;gap:4px;cursor:pointer" title="Only needed for Usage-Based / Revenue Lifecycle Management products">'+
+    '<input type="checkbox" onchange="orderState[\''+tabId+'\'].includeAppUsage=this.checked"> AppUsageAssignment</label>'+
+    '</div>'+
+    '</div>'+
+
+    // ── Order Items ────────────────────────────────────────────────────────────
+    '<div class="try-sec">'+
+    '<div class="try-lbl">Order Items</div>'+
+    '<div id="ob-items-'+tabId+'" style="margin-bottom:8px"></div>'+
+    '<button class="btn btn-sec" style="font-size:11px" onclick="obAddItem(\''+tabId+'\',\'\',\'\')">+ Add Order Item</button>'+
+    '</div>'+
+
+    // ── Actions ────────────────────────────────────────────────────────────────
+    '<div class="btn-row" style="margin-bottom:10px">'+
+    '<button class="btn btn-sec" onclick="obPreview(\''+tabId+'\')">&#128269; Preview Graph</button>'+
+    '<button class="btn btn-pri" id="ob-exec-btn-'+tabId+'" onclick="executeOrder(\''+tabId+'\')">&#9654; Execute Order API</button>'+
+    '<button class="btn btn-sec" onclick="obCopyApex(\''+tabId+'\')">Copy Apex</button>'+
+    '</div>'+
+    '<div id="ob-pill-'+tabId+'" style="margin-bottom:8px"></div>'+
+    '<div class="resp-box" id="ob-resp-'+tabId+'" style="color:var(--fg3);min-height:80px">Preview / response will appear here.</div>';
+
+  // Set today's date as default
+  const today = new Date().toISOString().slice(0,10);
+  const dateInput = document.getElementById('ob-date-'+tabId);
+  if(dateInput){ dateInput.value = today; orderState[tabId].effectiveDate = today; }
+  _obRenderItems(tabId);
+}
+
+function orderBuilderSetMode(tabId, mode){
+  orderState[tabId].mode = mode;
+  document.getElementById('ob-new-fields-'+tabId).style.display = mode==='new' ? '' : 'none';
+  document.getElementById('ob-patch-fields-'+tabId).style.display = mode==='patch' ? '' : 'none';
+}
+
+function obAddItem(tabId, parentRef, parentLabel){
+  const s = orderState[tabId];
+  const localRef = 'refItem_' + (s.itemCounter++);
+  s.items.push({
+    localRef,
+    op: 'POST',
+    product2Id: '',
+    pbeId: '',
+    qty: '1',
+    unitPrice: '0',
+    orderItemId: '',
+    parentRef: parentRef || '',
+    parentLabel: parentLabel || '',
+    attrs: [],
+    _collapsed: false
+  });
+  _obRenderItems(tabId);
+}
+
+function obRemoveItem(tabId, localRef){
+  const s = orderState[tabId];
+  s.items = s.items.filter(i => i.localRef !== localRef && i.parentRef !== localRef);
+  _obRenderItems(tabId);
+}
+
+function obAddAttr(tabId, localRef){
+  const s = orderState[tabId];
+  const item = s.items.find(i => i.localRef === localRef);
+  if(!item) return;
+  item.attrs.push({ attrDefId:'', usePicklist:false, picklistValueId:'', attrValue:'' });
+  _obRenderItems(tabId);
+}
+
+function obRemoveAttr(tabId, localRef, ai){
+  const s = orderState[tabId];
+  const item = s.items.find(i => i.localRef === localRef);
+  if(item) item.attrs.splice(ai,1);
+  _obRenderItems(tabId);
+}
+
+function _obRenderItems(tabId){
+  const s = orderState[tabId];
+  const container = document.getElementById('ob-items-'+tabId);
+  if(!container) return;
+
+  function renderItem(item, depth){
+    const indent = depth * 16;
+    const isPost = item.op === 'POST';
+    const isPatch = item.op === 'PATCH';
+    const isDel = item.op === 'DELETE';
+    const borderColor = isDel ? 'var(--red)' : isPatch ? 'var(--yellow)' : 'var(--green)';
+    const opColors = { POST:'var(--green)', PATCH:'var(--yellow)', DELETE:'var(--red)' };
+
+    let h = '<div style="margin-left:'+indent+'px;margin-bottom:8px;border:1px solid var(--border);border-left:3px solid '+borderColor+';border-radius:4px;overflow:hidden">';
+
+    // Header row
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(0,0,0,.15)">';
+    h += '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:'+opColors[item.op]+'20;color:'+opColors[item.op]+';border:1px solid '+opColors[item.op]+'">'+item.op+'</span>';
+    h += '<span style="font-size:11px;color:var(--fg2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.product2Id || item.orderItemId || item.localRef)+(item.parentRef?' <span style="font-size:9px;color:var(--fg3)">child of '+esc(item.parentLabel||item.parentRef)+'</span>':'')+'</span>';
+    if(item.attrs.length) h += '<span style="font-size:9px;color:var(--fg3)">'+item.attrs.length+' attr'+(item.attrs.length>1?'s':'')+'</span>';
+    h += '<button class="btn btn-sec" style="font-size:10px;padding:1px 6px" onclick="obAddItem(\''+tabId+'\',\''+item.localRef+'\',\''+esc(item.product2Id||item.localRef)+'\')" title="Add child item">+ Child</button>';
+    h += '<button class="btn btn-sec" style="font-size:10px;padding:1px 6px" onclick="obAddAttr(\''+tabId+'\',\''+item.localRef+'\')" title="Add attribute">+ Attr</button>';
+    if(isPost) h += '<button class="icon-btn" style="font-size:10px;color:#7eb5e8;border:1px solid rgba(126,181,232,.4);border-radius:3px;padding:1px 6px" onclick="obOpenConfigurator(\''+tabId+'\',\''+item.localRef+'\')" title="Load product structure from PCM API">⚙ Configure</button>';
+    h += '<button class="icon-btn" style="color:var(--red);font-size:12px" onclick="obRemoveItem(\''+tabId+'\',\''+item.localRef+'\')">✕</button>';
+    h += '</div>';
+
+    // Fields row
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:5px 8px;background:rgba(0,0,0,.08)">';
+    h += '<select class="try-sel" style="font-size:10px" onchange="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').op=this.value;_obRenderItems(\''+tabId+'\')">';
+    ['POST','PATCH','DELETE'].forEach(op => { h += '<option'+(item.op===op?' selected':'')+'>'+op+'</option>'; });
+    h += '</select>';
+
+    if(isPost || isPatch){
+      if(isPatch || isDel){
+        h += '<input class="try-inp" value="'+esc(item.orderItemId)+'" placeholder="OrderItem Id (802...)" style="font-size:10px;padding:2px 5px;width:180px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').orderItemId=this.value">';
+      }
+      if(isPost){
+        h += '<input class="try-inp" value="'+esc(item.product2Id)+'" placeholder="Product2Id (01t...)" style="font-size:10px;padding:2px 5px;width:165px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').product2Id=this.value">';
+        h += '<input class="try-inp" value="'+esc(item.pbeId)+'" placeholder="PricebookEntryId (01u...)" style="font-size:10px;padding:2px 5px;width:185px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').pbeId=this.value">';
+      }
+      h += '<label style="font-size:10px;color:var(--fg2);display:flex;align-items:center;gap:3px">Qty <input class="try-inp" value="'+esc(item.qty)+'" style="font-size:10px;padding:2px 4px;width:50px" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').qty=this.value"></label>';
+      if(isPost) h += '<label style="font-size:10px;color:var(--fg2);display:flex;align-items:center;gap:3px">UnitPrice <input class="try-inp" value="'+esc(item.unitPrice)+'" style="font-size:10px;padding:2px 4px;width:70px" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').unitPrice=this.value"></label>';
+    }
+    h += '</div>';
+
+    // Attributes
+    item.attrs.forEach((a, ai) => {
+      h += '<div style="display:flex;gap:5px;align-items:center;padding:3px 8px;border-top:1px solid rgba(255,255,255,.04);background:rgba(126,181,232,.05)">';
+      h += '<span style="font-size:9px;color:#7eb5e8;min-width:28px">attr</span>';
+      h += '<input class="try-inp" value="'+esc(a.attrDefId)+'" placeholder="AttributeDefinitionId (0tj...)" style="font-size:10px;padding:2px 4px;width:175px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').attrs['+ai+'].attrDefId=this.value">';
+      h += '<label style="font-size:10px;color:var(--fg2);display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox"'+(a.usePicklist?' checked':'')+' onchange="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').attrs['+ai+'].usePicklist=this.checked;_obRenderItems(\''+tabId+'\')"> Picklist</label>';
+      if(a.usePicklist){
+        h += '<input class="try-inp" value="'+esc(a.picklistValueId)+'" placeholder="PicklistValueId (0v6...)" style="font-size:10px;padding:2px 4px;width:165px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').attrs['+ai+'].picklistValueId=this.value">';
+      } else {
+        h += '<input class="try-inp" value="'+esc(a.attrValue)+'" placeholder="AttributeValue (text)" style="font-size:10px;padding:2px 4px;width:165px" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').attrs['+ai+'].attrValue=this.value">';
+      }
+      h += '<button class="icon-btn" style="color:var(--red);font-size:11px" onclick="obRemoveAttr(\''+tabId+'\',\''+item.localRef+'\','+ai+')">✕</button>';
+      h += '</div>';
+    });
+
+    h += '</div>';
+
+    // Render children recursively
+    s.items.filter(i => i.parentRef === item.localRef).forEach(child => {
+      h += renderItem(child, depth+1);
+    });
+    return h;
+  }
+
+  // Only render root items (no parent)
+  const roots = s.items.filter(i => !i.parentRef);
+  container.innerHTML = roots.length ? roots.map(i => renderItem(i, 0)).join('') :
+    '<div style="font-size:11px;color:var(--fg3);padding:6px 0">No items yet. Click + Add Order Item.</div>';
+}
+
+function _buildOrderGraph(tabId){
+  const s = orderState[tabId];
+  const records = [];
+  let qlrIdx = 0;
+
+  // 1. Order anchor
+  if(s.mode === 'new'){
+    const today = s.effectiveDate || new Date().toISOString().slice(0,10);
+    records.push({ referenceId:'refOrder', record:{
+      attributes:{ type:'Order', method:'POST' },
+      AccountId: s.accountId,
+      EffectiveDate: today,
+      Pricebook2Id: s.pricebook2Id,
+      Status: 'Draft',
+      Name: s.orderName || 'New Order'
+    }});
+  } else {
+    records.push({ referenceId:'refOrder', record:{
+      attributes:{ type:'Order', method:'PATCH', id: s.orderId }
+    }});
+  }
+
+  // 2. AppUsageAssignment — only for Usage-Based / Revenue Lifecycle Management products
+  if(s.includeAppUsage){
+    records.push({ referenceId:'refAppTag', record:{
+      attributes:{ type:'AppUsageAssignment', method:'POST' },
+      AppUsageType: 'RevenueLifecycleManagement',
+      RecordId: '@{refOrder.id}'
+    }});
+  }
+
+  // 3. OrderAction (required — every OrderItem links to it)
+  records.push({ referenceId:'refOrderAction', record:{
+    attributes:{ type:'OrderAction', method:'POST' },
+    OrderId: '@{refOrder.id}',
+    Type: 'Add'
+  }});
+
+  // 4. Order items — POSTs first, then PATCHes, then DELETEs (to mirror PST ordering)
+  const postItems = s.items.filter(i => i.op === 'POST');
+  const patchItems = s.items.filter(i => i.op === 'PATCH');
+  const delItems = s.items.filter(i => i.op === 'DELETE');
+
+  [...postItems, ...patchItems, ...delItems].forEach(item => {
+    if(item.op === 'POST'){
+      records.push({ referenceId: item.localRef, record:{
+        attributes:{ type:'OrderItem', method:'POST' },
+        OrderId: '@{refOrder.id}',
+        OrderActionId: '@{refOrderAction.id}',
+        PricebookEntryId: item.pbeId,
+        Product2Id: item.product2Id,
+        Quantity: parseFloat(item.qty)||1,
+        UnitPrice: parseFloat(item.unitPrice)||0
+      }});
+    } else if(item.op === 'PATCH'){
+      records.push({ referenceId: item.localRef, record:{
+        attributes:{ type:'OrderItem', method:'PATCH', id: item.orderItemId },
+        Quantity: parseFloat(item.qty)||1
+      }});
+    } else if(item.op === 'DELETE'){
+      records.push({ referenceId: item.localRef, record:{
+        attributes:{ type:'OrderItem', method:'DELETE', id: item.orderItemId }
+      }});
+    }
+
+    // Attributes for this item
+    (item.attrs||[]).forEach((a, ai) => {
+      if(!a.attrDefId) return;
+      const aRec = {
+        attributes:{ type:'OrderItemAttribute', method:'POST' },
+        OrderItemId: item.op==='POST' ? '@{'+item.localRef+'.id}' : item.orderItemId,
+        AttributeDefinitionId: a.attrDefId
+      };
+      if(a.usePicklist && a.picklistValueId) aRec.AttributePicklistValueId = a.picklistValueId;
+      else if(!a.usePicklist && a.attrValue) aRec.AttributeValue = a.attrValue;
+      records.push({ referenceId: item.localRef+'_attr'+ai, record: aRec });
+    });
+  });
+
+  // 5. OrderItemRelationships for parent-child pairs
+  postItems.filter(i => i.parentRef).forEach(child => {
+    const parent = s.items.find(i => i.localRef === child.parentRef);
+    if(!parent) return;
+    const mainId = parent.op==='POST' ? '@{'+parent.localRef+'.id}' : parent.orderItemId;
+    const assocId = '@{'+child.localRef+'.id}';
+    records.push({ referenceId:'refOir_'+(qlrIdx++), record:{
+      attributes:{ type:'OrderItemRelationship', method:'POST' },
+      MainOrderItemId: mainId,
+      AssociatedOrderItemId: assocId,
+      AssociatedOrderItemPricing: 'IncludedInBundlePrice'
+    }});
+  });
+
+  const opts = s.configOptions;
+  return {
+    pricingPref: s.pricingPref,
+    catalogRatesPref: 'Skip',
+    configurationInput: s.configInput,
+    configurationOptions: {
+      validateProductCatalog:    !!opts.validateProductCatalog,
+      validateAmendRenewCancel:  !!opts.validateAmendRenewCancel,
+      executeConfigurationRules: !!opts.executeConfigurationRules,
+      addDefaultConfiguration:   !!opts.addDefaultConfiguration
+    },
+    graph:{ graphId:'orderBuilder', records }
+  };
+}
+
+function obPreview(tabId){
+  const respEl = document.getElementById('ob-resp-'+tabId);
+  if(!respEl) return;
+  try{
+    const graph = _buildOrderGraph(tabId);
+    respEl.style.color='var(--fg2)';
+    respEl.textContent = JSON.stringify(graph, null, 2);
+    orderState[tabId].previewActive = true;
+  } catch(e){
+    respEl.style.color='var(--red)';
+    respEl.textContent = 'Graph error: '+e.message;
+  }
+}
+
+function executeOrder(tabId){
+  const s = orderState[tabId];
+  const orgAlias = document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  if(s.mode==='new'){
+    if(!s.accountId.trim()){ showToast('AccountId is required.','error'); return; }
+    if(!s.pricebook2Id.trim()){
+      const pbEl = document.getElementById('ob-pb-'+tabId);
+      if(pbEl){ pbEl.style.borderColor='var(--red)'; pbEl.style.boxShadow='0 0 0 2px rgba(220,50,50,.3)'; pbEl.focus(); setTimeout(()=>{ pbEl.style.borderColor=''; pbEl.style.boxShadow=''; },3000); }
+      showToast('Pricebook2Id is required — paste the 01s… ID.','error'); return;
+    }
+    if(!s.effectiveDate){ showToast('EffectiveDate is required.','error'); return; }
+  } else {
+    if(!s.orderId.trim()){ showToast('Order Id is required for PATCH mode.','error'); return; }
+  }
+
+  const btn = document.getElementById('ob-exec-btn-'+tabId);
+  const respEl = document.getElementById('ob-resp-'+tabId);
+  const pill = document.getElementById('ob-pill-'+tabId);
+  btn.disabled=true; btn.textContent='Executing…';
+  respEl.style.color='var(--fg3)'; respEl.textContent='Waiting for response…';
+  if(pill) pill.innerHTML='';
+
+  let body;
+  try{ body = applyVars(JSON.stringify(_buildOrderGraph(tabId))); }
+  catch(e){ btn.disabled=false; btn.textContent='▶ Execute Order API'; showToast('Graph error: '+e.message,'error'); return; }
+
+  const requestId = ++reqCounter;
+  pendingReqs[requestId] = (result) => {
+    btn.disabled=false; btn.textContent='▶ Execute Order API';
+    let parsed;
+    try{ parsed = JSON.parse(result.body); }catch(_){ parsed=null; }
+    const isOk = parsed && parsed.success;
+    const status = result.status||0;
+
+    respEl.style.color = (status>=200&&status<300) ? 'var(--fg2)' : 'var(--red)';
+    respEl.textContent = (result.body||'').length>100000
+      ? result.body.slice(0,100000)+'\n… (truncated)'
+      : result.body;
+
+    if(pill){
+      if(isOk){
+        const orderId = parsed.orderId;
+        pill.innerHTML = '<span class="status-pill s2xx">&#10003; Order created — '+esc(orderId)+'</span>'+
+          '<div style="margin-top:4px;font-size:10px;color:var(--fg3)">Order Id: <code>'+esc(orderId)+'</code> · Auto-set as <code>{{ORDER_ID}}</code></div>'+
+          (parsed.statusURL?'<div style="margin-top:2px;font-size:10px;color:var(--fg3)">Poll status: <code>'+esc(parsed.statusURL)+'</code></div>':'');
+        setQuickVar('ORDER_ID', orderId, null);
+      } else {
+        const errs = parsed&&parsed.errors ? parsed.errors.map(e=>'<li>'+esc(e.errorCode||'')+': '+esc(e.message||'')+'</li>').join('') : '';
+        pill.innerHTML = '<span class="status-pill serr">&#10005; Order API Failed</span>'+
+          (errs?'<ul style="margin:6px 0 0 16px;font-size:11px;color:var(--red)">'+errs+'</ul>':'');
+      }
+    }
+  };
+
+  vscMsg({ type:'executeCustom', requestId, orgAlias,
+    method:'POST',
+    path:'/services/data/v67.0/commerce/sales-orders/actions/place',
+    headers:{}, body, apiVersion:'v67.0' });
+}
+
+function obCopyApex(tabId){
+  let body;
+  try{ body = JSON.stringify(_buildOrderGraph(tabId), null, 2); }
+  catch(e){ showToast('Graph error: '+e.message,'error'); return; }
+  const apex = `HttpRequest req = new HttpRequest();
+req.setEndpoint(URL.getOrgDomainUrl().toExternalForm() + '/services/data/v67.0/commerce/sales-orders/actions/place');
+req.setMethod('POST');
+req.setHeader('Content-Type', 'application/json');
+req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+req.setTimeout(120000);
+req.setBody('${body.replace(/'/g,"\\'")}');
+HttpResponse res = new Http().send(req);
+System.debug(res.getStatusCode() + ' ' + res.getBody());`;
+  navigator.clipboard.writeText(apex).then(()=>showToast('Apex copied!','success'),()=>showToast('Copy failed','error'));
+}
+
+// ── PST Configurator Modal (PCM API → auto-populate inserts) ──────────────────
+
+let _pstCfgState = {};  // keyed by tabId+localRef
+
+function pstOpenConfigurator(tabId, localRef){
+  const s = pstState[tabId];
+  const ins = s.newInserts.find(i => i.localRef === localRef);
+  if(!ins){ showToast('Insert not found.','error'); return; }
+
+  const liveProductId = ins.product2Id.trim();
+  if(!liveProductId){ showToast('Enter a Product2Id before configuring.','error'); return; }
+
+  const stateKey = tabId + ':' + localRef;
+  const orgAlias = document.getElementById('org-select')?.value || '';
+  _pstCfgState[stateKey] = { tabId, localRef, product: null, selections: {}, compSelections: {}, compAttrSelections: {}, subProductCache: {}, pendingSubFetch: new Set(), orgAlias, applyTarget: 'pst' };
+  _pcmFetchAndOpenCfg(stateKey, liveProductId, orgAlias);
+}
+
+function obOpenConfigurator(tabId, localRef){
+  const s = orderState[tabId];
+  const item = s.items.find(i => i.localRef === localRef);
+  if(!item){ showToast('Item not found.','error'); return; }
+
+  const liveProductId = item.product2Id.trim();
+  if(!liveProductId){ showToast('Enter a Product2Id before configuring.','error'); return; }
+
+  const stateKey = tabId + ':' + localRef;
+  const orgAlias = document.getElementById('org-select')?.value || '';
+  _pstCfgState[stateKey] = { tabId, localRef, product: null, selections: {}, compSelections: {}, compAttrSelections: {}, subProductCache: {}, pendingSubFetch: new Set(), orgAlias, applyTarget: 'order' };
+  _pcmFetchAndOpenCfg(stateKey, liveProductId, orgAlias);
+}
+
+function _pcmFetchAndOpenCfg(stateKey, productId, orgAlias){
+  _pstShowCfgOverlay(null, null, '<div style="padding:30px;text-align:center;color:var(--fg3)">Loading product structure…</div>');
+
+  const rId = ++reqCounter;
+  pendingReqs[rId] = (r) => {
+    const st = _pstCfgState[stateKey];
+    try {
+      const data = JSON.parse(r.body);
+      const p = (data.products || [data])[0];
+      if(!p || !p.id){ _pstShowCfgOverlay(null, null, '<div style="padding:20px;color:var(--red)">Product not found or API error: '+esc(r.body.slice(0,200))+'</div>'); return; }
+      st.product = p;
+
+      // Resolve defaultValue to picklist ID (defaultValue may be label/value, not ID)
+      function _resolvePicklistId(attr, rawDefault){
+        if(!rawDefault || attr.dataType !== 'Picklist') return rawDefault;
+        const match = (attr.picklist?.values||[]).find(v => v.id===rawDefault || v.value===rawDefault || v.displayValue===rawDefault);
+        return match ? match.id : rawDefault;
+      }
+
+      // Init bundle-level attribute defaults
+      (p.attributeCategory||[]).forEach(cat => {
+        (cat.attributes||[]).forEach(a => {
+          if(a.defaultValue) st.selections[a.id] = _resolvePicklistId(a, a.defaultValue);
+        });
+      });
+      // Init component selections + attribute defaults recursively
+      function _initCompDefaults(comp){
+        const prc = comp.productRelatedComponent||{};
+        if(prc.isComponentRequired || prc.isDefaultComponent) st.compSelections[comp.id] = true;
+        st.compAttrSelections[comp.id] = {};
+        (comp.attributeCategory||[]).forEach(cat => {
+          (cat.attributes||[]).forEach(a => {
+            if(a.defaultValue) st.compAttrSelections[comp.id][a.id] = _resolvePicklistId(a, a.defaultValue);
+          });
+        });
+        (comp.productComponentGroups||[]).forEach(sg => {
+          (sg.components||[]).forEach(sc => _initCompDefaults(sc));
+        });
+      }
+      (p.productComponentGroups||[]).forEach(g => {
+        (g.components||[]).forEach(c => _initCompDefaults(c));
+      });
+      _pstRenderConfigModal(stateKey);
+    } catch(e) {
+      _pstShowCfgOverlay(null, null, '<div style="padding:20px;color:var(--red)">Parse error: '+esc(String(e))+'</div>');
+    }
+  };
+  vscMsg({ type:'executeCustom', requestId:rId, orgAlias,
+    method:'GET',
+    path:'/services/data/v66.0/connect/pcm/products/'+encodeURIComponent(productId),
+    headers:{}, body:'', apiVersion:'v61.0' });
+}
+
+function _pstShowCfgOverlay(tabId, localRef, content){
+  const existing = document.getElementById('pst-cfg-overlay');
+  if(existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pst-cfg-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML =
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;width:min(680px,96vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden">' +
+      '<div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border)">' +
+        '<span style="font-weight:700;font-size:13px;flex:1">⚙ Configure Product</span>' +
+        '<button class="icon-btn" style="font-size:14px;padding:1px 7px" onclick="document.querySelectorAll(\'#pst-cfg-overlay\').forEach(e=>e.remove())">✕</button>' +
+      '</div>' +
+      '<div id="pst-cfg-body" style="flex:1;overflow-y:auto;padding:14px">' + content + '</div>' +
+      '<div id="pst-cfg-footer" style="padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end"></div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+}
+
+function _pstRenderConfigModal(stateKey){
+  const st = _pstCfgState[stateKey];
+  if(!st) return;
+  const p = st.product;
+  const tabId = st.tabId;
+  const localRef = st.localRef;
+
+  let html = '';
+
+  // Product header
+  html += '<div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:10px">'+esc(p.name)+'</div>';
+  html += '<div style="font-size:10px;color:var(--fg3);margin-bottom:12px;font-family:monospace">'+esc(p.id)+' · '+esc(p.nodeType||'')+'</div>';
+
+  // Selling models
+  const models = p.productSellingModelOptions||[];
+  if(models.length > 1){
+    html += '<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:600;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Selling Model</div>';
+    models.forEach(m => {
+      const sm = m.productSellingModel||{};
+      const checked = m.isDefault || false;
+      html += '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--fg2);margin-bottom:4px;cursor:pointer">' +
+        '<input type="radio" name="pst-cfg-model-'+stateKey+'" value="'+esc(sm.id||sm.name)+'"'+(checked?' checked':'')+' onchange="_pstCfgState[\''+stateKey+'\'].selectedModel=this.value"> '+
+        esc(sm.name)+' <span style="font-size:9px;color:var(--fg3)">('+esc(sm.sellingModelType||'')+(sm.pricingTerm?' · '+sm.pricingTerm+' '+sm.pricingTermUnit:'')+')' +'</span></label>';
+    });
+    html += '</div>';
+  }
+
+  // Attributes
+  const cats = p.attributeCategory||[];
+  if(cats.length){
+    html += '<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:600;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Attributes</div>';
+    html += '<div style="border:1px solid var(--border);border-radius:4px;overflow:hidden">';
+    let first = true;
+    cats.forEach(cat => {
+      (cat.attributes||[]).forEach(a => {
+        const curVal = st.selections[a.id] || a.defaultValue || '';
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;'+(first?'':'border-top:1px solid rgba(255,255,255,.05);')+'background:rgba(0,0,0,.1)">';
+        first = false;
+        html += '<span style="font-size:11px;color:var(--fg2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(a.id)+'">'+esc(a.name)+(a.isRequired?' <span style="color:var(--red)">*</span>':'')+'</span>';
+        if(a.dataType === 'Picklist' && a.picklist?.values?.length){
+          html += '<select class="try-inp" style="font-size:11px;padding:2px 5px;max-width:180px" onchange="_pstCfgState[\''+stateKey+'\'].selections[\''+esc(a.id)+'\']=this.value">';
+          html += '<option value="">— select —</option>';
+          (a.picklist.values||[]).forEach(v => {
+            const selected = (v.value === curVal || v.displayValue === curVal || v.id === curVal);
+            html += '<option value="'+esc(v.id)+'"'+(selected?' selected':'')+'>'+esc(v.displayValue||v.value)+'</option>';
+          });
+          html += '</select>';
+        } else {
+          html += '<input class="try-inp" value="'+esc(curVal)+'" placeholder="value" style="font-size:11px;padding:2px 5px;width:160px" onchange="_pstCfgState[\''+stateKey+'\'].selections[\''+esc(a.id)+'\']=this.value">';
+        }
+        html += '</div>';
+      });
+    });
+    html += '</div></div>';
+  }
+
+  // Recursive component group renderer
+  function _renderCompGroupHtml(groups, depth){
+    let h = '';
+    const indent = depth * 16;
+    groups.forEach(g => {
+      const min = g.minBundleComponents ?? 0;
+      const max = g.maxBundleComponents ?? '∞';
+      const borderColor = depth === 0 ? 'var(--border)' : 'rgba(255,255,255,.1)';
+      h += '<div style="margin-left:'+indent+'px;margin-bottom:6px;border:1px solid '+borderColor+';border-radius:4px;overflow:hidden">';
+      h += '<div style="background:rgba(255,255,255,.04);padding:3px 8px;font-size:10px;color:var(--fg2)">'+esc(g.name)+' <span style="color:var(--fg3)">(min:'+min+' max:'+max+')</span></div>';
+      (g.components||[]).forEach((c, ci) => {
+        const prc = c.productRelatedComponent||{};
+        const checked = !!st.compSelections[c.id];
+        const disabled = prc.isComponentRequired;
+        const compAttrs = (c.attributeCategory||[]).flatMap(cat => cat.attributes||[]);
+        const hasSubGroups = (c.productComponentGroups||[]).length > 0;
+        const isBundle = c.nodeType === 'bundleProduct';
+
+        h += '<div style="border-top:1px solid rgba(255,255,255,.04)">';
+        h += '<label style="display:flex;align-items:center;gap:7px;padding:4px 8px;cursor:'+(disabled?'default':'pointer')+';background:rgba(0,0,0,.1)">';
+        h += '<input type="checkbox" '+(checked?'checked ':'')+''+(disabled?'disabled ':'')+
+             ' onchange="_pstCfgToggleComp(\''+stateKey+'\',\''+esc(g.id||String(ci))+'\',\''+esc(c.id)+'\',this.checked,'+min+','+max+')">';
+        h += '<span style="font-size:11px;color:var(--fg2);flex:1">'+esc(c.name)+'</span>';
+        const tags = [];
+        if(hasSubGroups){ const subCount = (c.productComponentGroups||[]).reduce((n,sg)=>n+(sg.components||[]).length,0); tags.push('<span style="font-size:9px;padding:0 4px;border-radius:2px;background:rgba(200,150,50,.2);color:#e0c080">Bundle · '+subCount+' sub</span>'); }
+        else if(isBundle)                   tags.push('<span style="font-size:9px;padding:0 4px;border-radius:2px;background:rgba(200,150,50,.2);color:#e0c080">Bundle</span>');
+        if(prc.isComponentRequired)         tags.push('<span style="font-size:9px;padding:0 4px;border-radius:2px;background:rgba(200,50,50,.2);color:#e08080">Required</span>');
+        if(prc.isDefaultComponent)          tags.push('<span style="font-size:9px;padding:0 4px;border-radius:2px;background:rgba(80,80,200,.2);color:#8080e0">Default</span>');
+        if(prc.doesBundlePriceIncludeChild) tags.push('<span style="font-size:9px;padding:0 4px;border-radius:2px;background:rgba(50,150,50,.2);color:#80c080">Included</span>');
+        if(compAttrs.length)                tags.push('<span style="font-size:9px;padding:0 4px;border-radius:2px;background:rgba(80,150,200,.15);color:#7eb5e8">'+compAttrs.length+' attr'+(compAttrs.length>1?'s':'')+'</span>');
+        h += tags.join(' ')+'</label>';
+
+        // Attributes for this component — shown when checked
+        if(checked && compAttrs.length){
+          h += '<div style="margin:0 8px 4px '+(24+indent)+'px;border:1px solid rgba(126,181,232,.2);border-radius:3px;overflow:hidden">';
+          h += '<div style="background:rgba(126,181,232,.07);padding:3px 7px;font-size:9px;color:#7eb5e8;font-weight:600;text-transform:uppercase;letter-spacing:.5px">'+esc(c.name)+' Attributes</div>';
+          compAttrs.forEach(a => {
+            const curVal = (st.compAttrSelections[c.id]||{})[a.id] || a.defaultValue || '';
+            h += '<div style="display:flex;align-items:center;gap:8px;padding:4px 7px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,.1)">';
+            h += '<span style="font-size:11px;color:var(--fg2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(a.id)+'">'+esc(a.name)+(a.isRequired?' <span style="color:var(--red)">*</span>':'')+'</span>';
+            const cid = esc(c.id), aid = esc(a.id);
+            const onChange = 'if(!_pstCfgState[\''+stateKey+'\'].compAttrSelections[\''+cid+'\'])_pstCfgState[\''+stateKey+'\'].compAttrSelections[\''+cid+'\']={}; _pstCfgState[\''+stateKey+'\'].compAttrSelections[\''+cid+'\'][\''+aid+'\']=this.value';
+            if(a.dataType === 'Picklist' && a.picklist?.values?.length){
+              h += '<select class="try-inp" style="font-size:11px;padding:2px 5px;max-width:160px" onchange="'+onChange+'">';
+              h += '<option value="">— select —</option>';
+              (a.picklist.values||[]).forEach(v => {
+                const sel = v.value===curVal||v.displayValue===curVal||v.id===curVal;
+                h += '<option value="'+esc(v.id)+'"'+(sel?' selected':'')+'>'+esc(v.displayValue||v.value)+'</option>';
+              });
+              h += '</select>';
+            } else {
+              h += '<input class="try-inp" value="'+esc(curVal)+'" placeholder="value" style="font-size:11px;padding:2px 5px;width:140px" onchange="'+onChange+'">';
+            }
+            h += '</div>';
+          });
+          h += '</div>';
+        }
+
+        // Sub-component groups — always visible, dimmed when parent unchecked; spinner while loading
+        if(isBundle){
+          const isPending = checked && st.pendingSubFetch && st.pendingSubFetch.has(c.id);
+          const subGroups = c.productComponentGroups||[];
+          h += '<div style="padding:4px 8px 6px 8px;transition:opacity .15s'+(checked?'':';opacity:.35;pointer-events:none')+'">';
+          if(!checked){
+            h += '<div style="font-size:9px;color:var(--fg3);padding:0 2px 3px 2px;font-style:italic">↑ check '+esc(c.name)+' to expand sub-options</div>';
+          } else if(isPending){
+            h += '<div style="font-size:10px;color:var(--fg3);padding:4px 2px;font-style:italic">⏳ Loading sub-components…</div>';
+          } else if(subGroups.length){
+            h += _renderCompGroupHtml(subGroups, depth+1);
+          } else {
+            h += '<div style="font-size:9px;color:var(--fg3);padding:2px 2px;font-style:italic">No sub-components found</div>';
+          }
+          h += '</div>';
+        }
+
+        h += '</div>';
+      });
+      h += '</div>';
+    });
+    return h;
+  }
+
+  // Component groups
+  const groups = p.productComponentGroups||[];
+  if(groups.length){
+    html += '<div><div style="font-size:10px;font-weight:600;color:var(--fg2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Bundle Components</div>';
+    html += _renderCompGroupHtml(groups, 0);
+    html += '</div>';
+  }
+
+  _pstShowCfgOverlay(null, null, html);
+
+  // Footer button — route by applyTarget
+  const footer = document.getElementById('pst-cfg-footer');
+  if(footer){
+    const isOrder = st.applyTarget === 'order';
+    const applyFn = isOrder ? '_obApplyConfiguration' : '_pstApplyConfiguration';
+    const applyLabel = isOrder ? '✓ Apply to Order Builder' : '✓ Apply to PST Builder';
+    footer.innerHTML =
+      '<span style="font-size:10px;color:var(--fg3);flex:1">Applies attributes + selected components as child inserts</span>' +
+      '<button class="btn btn-sec" style="font-size:11px" onclick="document.querySelectorAll(\'#pst-cfg-overlay\').forEach(e=>e.remove())">Cancel</button>' +
+      '<button class="btn" style="font-size:11px;background:#2a6a2a" onclick="'+applyFn+'(\''+stateKey+'\')">'+applyLabel+'</button>';
+  }
+}
+
+function _pstCfgToggleComp(stateKey, groupId, compId, checked, min, max){
+  const st = _pstCfgState[stateKey];
+  if(!st) return;
+  st.compSelections[compId] = checked;
+
+  // If checked and this component's sub-structure hasn't been fetched yet, fetch it
+  if(checked && !st.subProductCache[compId] && !st.pendingSubFetch.has(compId)){
+    // Find the component in the tree to check if it's a bundle
+    function _findComp(groups){
+      for(const g of groups||[]){
+        for(const c of g.components||[]){
+          if(c.id === compId) return c;
+          const found = _findComp(c.productComponentGroups);
+          if(found) return found;
+        }
+      }
+      return null;
+    }
+    const comp = _findComp(st.product.productComponentGroups);
+    // Fetch sub-structure for any component that might be a bundle (nodeType bundleProduct or unknown)
+    // nodeType may not be set on deeply merged components, so fetch unless it's explicitly simpleProduct with no sub-groups
+    const skipFetch = comp && comp.nodeType === 'simpleProduct' && !(comp.productComponentGroups||[]).length;
+    if(comp && !skipFetch){
+      st.pendingSubFetch.add(compId);
+      // Show loading indicator under this component
+      _pstRenderConfigModal(stateKey);
+      // Fetch sub-structure
+      const rId = ++reqCounter;
+      pendingReqs[rId] = (r) => {
+        st.pendingSubFetch.delete(compId);
+        try {
+          const data = JSON.parse(r.body);
+          const subP = (data.products||[data])[0];
+          if(subP && subP.id){
+            st.subProductCache[compId] = subP;
+            // Merge sub-groups back into the component in the product tree
+            function _mergeIntoTree(groups){
+              for(const g of groups||[]){
+                for(const c of g.components||[]){
+                  if(c.id === compId){
+                    c.productComponentGroups = subP.productComponentGroups||[];
+                    c.attributeCategory = subP.attributeCategory||[];
+                    return true;
+                  }
+                  if(_mergeIntoTree(c.productComponentGroups)) return true;
+                }
+              }
+              return false;
+            }
+            _mergeIntoTree(st.product.productComponentGroups);
+            // Init defaults for newly loaded sub-components
+            function _initSubDefaults(comp2){
+              const prc = comp2.productRelatedComponent||{};
+              if(prc.isComponentRequired||prc.isDefaultComponent) st.compSelections[comp2.id]=true;
+              if(!st.compAttrSelections[comp2.id]) st.compAttrSelections[comp2.id]={};
+              (comp2.attributeCategory||[]).forEach(cat=>(cat.attributes||[]).forEach(a=>{
+                if(a.defaultValue) st.compAttrSelections[comp2.id][a.id]=a.defaultValue;
+              }));
+              (comp2.productComponentGroups||[]).forEach(sg=>(sg.components||[]).forEach(sc=>_initSubDefaults(sc)));
+            }
+            (subP.productComponentGroups||[]).forEach(sg=>(sg.components||[]).forEach(sc=>_initSubDefaults(sc)));
+          }
+        } catch(e){ console.warn('[Configure] sub-fetch parse error', e); }
+        _pstRenderConfigModal(stateKey);
+      };
+      vscMsg({ type:'executeCustom', requestId:rId, orgAlias:st.orgAlias||pstState[st.tabId].orgAlias,
+        method:'GET', path:'/services/data/v66.0/connect/pcm/products/'+encodeURIComponent(compId),
+        headers:{}, body:'', apiVersion:'v61.0' });
+      return;
+    }
+  }
+
+  _pstRenderConfigModal(stateKey);
+}
+
+function _pstApplyConfiguration(stateKey){
+  const st = _pstCfgState[stateKey];
+  if(!st) return;
+  const { tabId, localRef, product, selections, compSelections } = st;
+  const s = pstState[tabId];
+  const ins = s.newInserts.find(i => i.localRef === localRef);
+  if(!ins) return;
+
+  // Clear existing attrs on this insert
+  ins.attrs = [];
+
+  // Apply attribute selections
+  (product.attributeCategory||[]).forEach(cat => {
+    (cat.attributes||[]).forEach(a => {
+      const val = selections[a.id];
+      if(!val) return;
+      const isPicklist = a.dataType === 'Picklist';
+      ins.attrs.push({
+        attrDefId: a.id,
+        usePicklist: isPicklist,
+        picklistValueId: isPicklist ? val : '',
+        attrValue: !isPicklist ? val : ''
+      });
+    });
+  });
+
+  // Remove ALL descendant inserts that came from a previous Configure apply (any depth)
+  const _fromConfigRefs = new Set();
+  function _collectConfigRefs(parentRef){
+    s.newInserts.forEach(i => {
+      if(i._fromConfigure && i.parentRef === parentRef){
+        _fromConfigRefs.add(i.localRef);
+        _collectConfigRefs(i.localRef);
+      }
+    });
+  }
+  _collectConfigRefs(localRef);
+  s.newInserts = s.newInserts.filter(i => !_fromConfigRefs.has(i.localRef));
+
+  // Recursively add child inserts for all selected components at every depth
+  function _addCompInserts(groups, parentRef, parentLabel){
+    (groups||[]).forEach(g => {
+      (g.components||[]).forEach(c => {
+        if(!compSelections[c.id]) return;
+        const prc = c.productRelatedComponent||{};
+        const childRef = 'ref_ins_' + (s.insertCounter++);
+        const compAttrs = [];
+        (c.attributeCategory||[]).forEach(cat => {
+          (cat.attributes||[]).forEach(a => {
+            const val = (st.compAttrSelections[c.id]||{})[a.id] || a.defaultValue || '';
+            if(!val) return;
+            const isPicklist = a.dataType === 'Picklist';
+            compAttrs.push({ attrDefId: a.id, usePicklist: isPicklist, picklistValueId: isPicklist ? val : '', attrValue: !isPicklist ? val : '' });
+          });
+        });
+        s.newInserts.push({
+          localRef: childRef,
+          product2Id: c.id,
+          pbeId: '',
+          qty: String(prc.quantity || 1),
+          billingFreq: '',
+          parentRef,
+          parentLabel,
+          attrs: compAttrs,
+          _fromConfigure: true,
+          _componentName: c.name
+        });
+        // Recurse into this component's sub-groups if it's a bundle
+        if((c.productComponentGroups||[]).length){
+          _addCompInserts(c.productComponentGroups, childRef, c.name);
+        }
+      });
+    });
+  }
+  _addCompInserts(product.productComponentGroups, localRef, ins.product2Id || localRef);
+
+  // Close all cfg overlays
+  document.querySelectorAll('#pst-cfg-overlay').forEach(el => el.remove());
+  _renderPstTree(tabId);
+  if(s.previewActive) pstPreview(tabId);
+}
+
+function _obApplyConfiguration(stateKey){
+  const st = _pstCfgState[stateKey];
+  if(!st) return;
+  const { tabId, localRef, product, selections, compSelections, compAttrSelections } = st;
+  const s = orderState[tabId];
+  if(!s) return;
+  const item = s.items.find(i => i.localRef === localRef);
+  if(!item) return;
+
+  // Build attrs from bundle-level attributes
+  const newAttrs = [];
+  (product.attributeCategory||[]).forEach(cat => {
+    (cat.attributes||[]).forEach(a => {
+      const val = selections[a.id];
+      if(!val) return;
+      const isPicklist = a.dataType === 'Picklist';
+      newAttrs.push({ attrDefId: a.id, usePicklist: isPicklist, picklistValueId: isPicklist ? val : '', attrValue: !isPicklist ? val : '' });
+    });
+  });
+  item.attrs = newAttrs;
+
+  // Remove existing child items that came from a previous Configure apply
+  s.items = s.items.filter(i => !(i._fromConfigure && i.parentRef === localRef));
+
+  // Recursively add child items for selected components
+  function _addCompItems(groups, parentRef, parentLabel){
+    (groups||[]).forEach(g => {
+      (g.components||[]).forEach(c => {
+        if(!compSelections[c.id]) return;
+        const prc = c.productRelatedComponent||{};
+        const childRef = 'refItem_' + (s.itemCounter++);
+        const compAttrs = [];
+        (c.attributeCategory||[]).forEach(cat => {
+          (cat.attributes||[]).forEach(a => {
+            const val = (compAttrSelections[c.id]||{})[a.id] || a.defaultValue || '';
+            if(!val) return;
+            const isPicklist = a.dataType === 'Picklist';
+            compAttrs.push({ attrDefId: a.id, usePicklist: isPicklist, picklistValueId: isPicklist ? val : '', attrValue: !isPicklist ? val : '' });
+          });
+        });
+        s.items.push({ localRef: childRef, op: 'POST', product2Id: c.id, pbeId: '', qty: String(prc.quantity||1), unitPrice: '0', orderItemId: '', parentRef, parentLabel, attrs: compAttrs, _fromConfigure: true, _collapsed: false });
+        if((c.productComponentGroups||[]).length){
+          _addCompItems(c.productComponentGroups, childRef, c.name);
+        }
+      });
+    });
+  }
+  _addCompItems(product.productComponentGroups, localRef, item.product2Id || localRef);
+
+  document.querySelectorAll('#pst-cfg-overlay').forEach(el => el.remove());
+  _obRenderItems(tabId);
+  if(orderState[tabId].previewActive) obPreview(tabId);
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

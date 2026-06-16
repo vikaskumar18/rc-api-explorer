@@ -2,17 +2,23 @@
   "name": "rc-api-explorer",
   "displayName": "Revenue Cloud API Explorer",
   "description": "Explore, browse and execute Salesforce Revenue Cloud REST APIs directly from VS Code",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "vikas-builds",
   "repository": {
     "type": "git",
     "url": "https://github.com/vikaskumar18/rc-api-explorer"
   },
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
   "icon": "resources/icon.png",
   "main": "./dist/extension.js",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -73,9 +79,15 @@
     ],
     "menus": {
       "commandPalette": [
-        { "command": "rcApiExplorer.openPanel" },
-        { "command": "rcApiExplorer.refreshOrgs" },
-        { "command": "rcApiExplorer.openProductBrowser" }
+        {
+          "command": "rcApiExplorer.openPanel"
+        },
+        {
+          "command": "rcApiExplorer.refreshOrgs"
+        },
+        {
+          "command": "rcApiExplorer.openProductBrowser"
+        }
       ],
       "view/title": [
         {

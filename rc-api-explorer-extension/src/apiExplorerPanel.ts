@@ -141,9 +141,12 @@ export class ApiExplorerPanel {
       case 'preWarmToken':
         if (msg.orgAlias) {
           preWarmToken(msg.orgAlias).then(alive => {
+            this.outputChannel.appendLine(`[preWarmToken] ${msg.orgAlias} → alive=${alive}`);
             if (!alive) {
               this.postMsg({ type: 'sessionExpired', orgAlias: msg.orgAlias });
             }
+          }).catch(e => {
+            this.outputChannel.appendLine(`[preWarmToken] ${msg.orgAlias} → error: ${e?.message}`);
           });
         }
         break;

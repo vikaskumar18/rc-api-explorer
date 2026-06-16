@@ -4073,7 +4073,14 @@ function openOrderBuilderTab(){
     effectiveDate: '',
     pricebook2Id: '',
     orderName: 'New Order',
+    contractId: '',
+    currencyIsoCode: '',
+    billToContactId: '',
+    billingStreet: '', billingCity: '', billingPostalCode: '', billingCountry: '',
+    shippingStreet: '', shippingCity: '', shippingPostalCode: '', shippingCountry: '',
+    billingExpanded: false,
     pricingPref: 'Force',
+    taxPref: 'Skip',
     configInput: 'RunAndAllowErrors',
     configOptions: { validateProductCatalog:true, validateAmendRenewCancel:true, executeConfigurationRules:true, addDefaultConfiguration:true },
     includeAppUsage: false,
@@ -4094,7 +4101,7 @@ function openOrderBuilderTab(){
 function _buildOrderPanel(panel, tabId){
   panel.innerHTML =
     '<div class="d-title">&#128220; Order Builder</div>'+
-    '<div style="color:var(--fg3);font-size:11px;margin-bottom:14px">Builds payloads for <code>POST /commerce/sales-orders/actions/place</code>. Includes Order anchor, AppUsageAssignment, OrderAction, OrderItems and bundle relationships.</div>'+
+    '<div style="color:var(--fg3);font-size:11px;margin-bottom:14px">Builds payloads for <code>POST /connect/rev/sales-transaction/actions/place</code>. Includes Order anchor, OrderAction, OrderItems, attributes, and bundle relationships.</div>'+
 
     // ── Mode toggle ────────────────────────────────────────────────────────────
     '<div class="try-sec" style="margin-bottom:10px">'+
@@ -4112,8 +4119,33 @@ function _buildOrderPanel(panel, tabId){
     '<label style="font-size:10px;color:var(--fg2)">Name *<br><input class="try-inp" id="ob-name-'+tabId+'" value="New Order" style="width:180px;font-size:11px;padding:2px 5px" oninput="orderState[\''+tabId+'\'].orderName=this.value"></label>'+
     '<label style="font-size:10px;color:var(--fg2)">AccountId *<br><input class="try-inp" id="ob-acc-'+tabId+'" placeholder="001..." style="width:160px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="orderState[\''+tabId+'\'].accountId=this.value"></label>'+
     '<label style="font-size:10px;color:var(--fg2)">Pricebook2Id *<br><input class="try-inp" id="ob-pb-'+tabId+'" placeholder="01s..." style="width:160px;font-size:11px;font-family:monospace;padding:2px 5px" oninput="orderState[\''+tabId+'\'].pricebook2Id=this.value"></label>'+
-    '<label style="font-size:10px;color:var(--fg2)">EffectiveDate *<br><input class="try-inp" id="ob-date-'+tabId+'" type="date" style="width:140px;font-size:11px;padding:2px 5px" oninput="orderState[\''+tabId+'\'].effectiveDate=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">EffectiveDate *<br><input class="try-inp" id="ob-date-'+tabId+'" type="datetime-local" style="width:175px;font-size:11px;padding:2px 5px" oninput="orderState[\''+tabId+'\'].effectiveDate=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">CurrencyIsoCode<br><input class="try-inp" placeholder="USD / GBP / EUR…" style="width:100px;font-size:11px;padding:2px 5px" oninput="orderState[\''+tabId+'\'].currencyIsoCode=this.value.toUpperCase()"></label>'+
     '</div>'+
+
+    // Billing & Shipping collapsible
+    '<div style="margin-bottom:4px">'+
+    '<button class="btn btn-sec" id="ob-billing-toggle-'+tabId+'" style="font-size:10px;padding:2px 8px" onclick="obToggleBilling(\''+tabId+'\')">&#9654; Billing &amp; Shipping (optional)</button>'+
+    '</div>'+
+    '<div id="ob-billing-fields-'+tabId+'" style="display:none">'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+
+    '<label style="font-size:10px;color:var(--fg2)">ContractId<br><input class="try-inp" placeholder="800..." style="width:170px;font-size:10px;font-family:monospace;padding:2px 4px" oninput="orderState[\''+tabId+'\'].contractId=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">BillToContactId<br><input class="try-inp" placeholder="003..." style="width:170px;font-size:10px;font-family:monospace;padding:2px 4px" oninput="orderState[\''+tabId+'\'].billToContactId=this.value"></label>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">'+
+    '<label style="font-size:10px;color:var(--fg2)">BillingStreet<br><input class="try-inp" style="width:200px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].billingStreet=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">BillingCity<br><input class="try-inp" style="width:120px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].billingCity=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">PostalCode<br><input class="try-inp" style="width:90px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].billingPostalCode=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">Country<br><input class="try-inp" style="width:60px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].billingCountry=this.value"></label>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+
+    '<label style="font-size:10px;color:var(--fg2)">ShippingStreet<br><input class="try-inp" style="width:200px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].shippingStreet=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">ShippingCity<br><input class="try-inp" style="width:120px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].shippingCity=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">PostalCode<br><input class="try-inp" style="width:90px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].shippingPostalCode=this.value"></label>'+
+    '<label style="font-size:10px;color:var(--fg2)">Country<br><input class="try-inp" style="width:60px;font-size:10px;padding:2px 4px" oninput="orderState[\''+tabId+'\'].shippingCountry=this.value"></label>'+
+    '</div>'+
+    '</div>'+
+
     '</div>'+
 
     // Patch mode — just order ID
@@ -4126,6 +4158,10 @@ function _buildOrderPanel(panel, tabId){
     '<label style="font-size:11px;color:var(--fg2)">Pricing</label>'+
     '<select class="try-sel" onchange="orderState[\''+tabId+'\'].pricingPref=this.value">'+
     '<option value="Force" selected>Force</option><option value="System">System</option><option value="Skip">Skip</option>'+
+    '</select>'+
+    '<label style="font-size:11px;color:var(--fg2)">Tax</label>'+
+    '<select class="try-sel" onchange="orderState[\''+tabId+'\'].taxPref=this.value">'+
+    '<option value="Skip" selected>Skip</option>'+
     '</select>'+
     '<label style="font-size:11px;color:var(--fg2)">Config</label>'+
     '<select class="try-sel" onchange="orderState[\''+tabId+'\'].configInput=this.value">'+
@@ -4155,9 +4191,10 @@ function _buildOrderPanel(panel, tabId){
     '<div class="resp-box" id="ob-resp-'+tabId+'" style="color:var(--fg3);min-height:80px">Preview / response will appear here.</div>';
 
   // Set today's date as default
-  const today = new Date().toISOString().slice(0,10);
+  const now = new Date();
+  const todayDt = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   const dateInput = document.getElementById('ob-date-'+tabId);
-  if(dateInput){ dateInput.value = today; orderState[tabId].effectiveDate = today; }
+  if(dateInput){ dateInput.value = todayDt; orderState[tabId].effectiveDate = todayDt; }
   _obRenderItems(tabId);
 }
 
@@ -4165,6 +4202,15 @@ function orderBuilderSetMode(tabId, mode){
   orderState[tabId].mode = mode;
   document.getElementById('ob-new-fields-'+tabId).style.display = mode==='new' ? '' : 'none';
   document.getElementById('ob-patch-fields-'+tabId).style.display = mode==='patch' ? '' : 'none';
+}
+
+function obToggleBilling(tabId){
+  const s = orderState[tabId];
+  s.billingExpanded = !s.billingExpanded;
+  const fields = document.getElementById('ob-billing-fields-'+tabId);
+  const btn = document.getElementById('ob-billing-toggle-'+tabId);
+  if(fields) fields.style.display = s.billingExpanded ? '' : 'none';
+  if(btn) btn.innerHTML = (s.billingExpanded ? '&#9660;' : '&#9654;') + ' Billing &amp; Shipping (optional)';
 }
 
 function obAddItem(tabId, parentRef, parentLabel){
@@ -4181,6 +4227,13 @@ function obAddItem(tabId, parentRef, parentLabel){
     parentRef: parentRef || '',
     parentLabel: parentLabel || '',
     attrs: [],
+    serviceDate: '',
+    periodBoundary: 'Anniversary',
+    billingFrequency: 'Monthly',
+    description: '',
+    prcRelCompId: '',
+    prcRelTypeId: '',
+    assocPricing: 'NotIncludedInBundlePrice',
     _collapsed: false
   });
   _obRenderItems(tabId);
@@ -4252,6 +4305,26 @@ function _obRenderItems(tabId){
     }
     h += '</div>';
 
+    // Extra POST fields row: ServiceDate, PeriodBoundary, BillingFrequency, Description
+    if(isPost){
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 8px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,.06)">';
+      h += '<label style="font-size:10px;color:var(--fg2)">ServiceDate<br><input class="try-inp" type="datetime-local" value="'+esc(item.serviceDate||'')+'" style="font-size:10px;padding:2px 4px;width:160px" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').serviceDate=this.value"></label>';
+      h += '<label style="font-size:10px;color:var(--fg2)">PeriodBoundary<br><select class="try-sel" style="font-size:10px" onchange="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').periodBoundary=this.value"><option'+(item.periodBoundary==='Anniversary'?' selected':'')+'>Anniversary</option><option'+(item.periodBoundary==='AlignToCalendar'?' selected':'')+'>AlignToCalendar</option><option value=""'+((!item.periodBoundary)?' selected':'')+'>— none —</option></select></label>';
+      h += '<label style="font-size:10px;color:var(--fg2)">BillingFrequency<br><select class="try-sel" style="font-size:10px" onchange="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').billingFrequency=this.value"><option'+(item.billingFrequency==='Monthly'?' selected':'')+'>Monthly</option><option'+(item.billingFrequency==='Quarterly'?' selected':'')+'>Quarterly</option><option'+(item.billingFrequency==='Annual'?' selected':'')+'>Annual</option><option'+(item.billingFrequency==='OneTime'?' selected':'')+'>OneTime</option><option value=""'+((!item.billingFrequency)?' selected':'')+'>— none —</option></select></label>';
+      h += '<label style="font-size:10px;color:var(--fg2)">Description<br><input class="try-inp" value="'+esc(item.description||'')+'" placeholder="e.g. LIVE" style="font-size:10px;padding:2px 4px;width:140px" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').description=this.value"></label>';
+      h += '</div>';
+    }
+
+    // Relationship row for child items
+    if(isPost && item.parentRef){
+      h += '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 8px;border-top:1px solid rgba(255,255,255,.04);background:rgba(255,200,100,.04)">';
+      h += '<span style="font-size:9px;color:var(--yellow);align-self:center;min-width:20px" title="OrderItemRelationship fields">OIR</span>';
+      h += '<label style="font-size:10px;color:var(--fg2)">PrdRelComponentId<br><input class="try-inp" value="'+esc(item.prcRelCompId||'')+'" placeholder="0dS..." style="font-size:10px;padding:2px 4px;width:165px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').prcRelCompId=this.value"></label>';
+      h += '<label style="font-size:10px;color:var(--fg2)">PrdRelTypeId<br><input class="try-inp" value="'+esc(item.prcRelTypeId||'')+'" placeholder="0yo..." style="font-size:10px;padding:2px 4px;width:165px;font-family:monospace" oninput="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').prcRelTypeId=this.value"></label>';
+      h += '<label style="font-size:10px;color:var(--fg2)">AssocPricing<br><select class="try-sel" style="font-size:10px" onchange="orderState[\''+tabId+'\'].items.find(i=>i.localRef===\''+item.localRef+'\').assocPricing=this.value"><option'+(item.assocPricing==='NotIncludedInBundlePrice'?' selected':'')+'>NotIncludedInBundlePrice</option><option'+(item.assocPricing==='IncludedInBundlePrice'?' selected':'')+'>IncludedInBundlePrice</option></select></label>';
+      h += '</div>';
+    }
+
     // Attributes
     item.attrs.forEach((a, ai) => {
       h += '<div style="display:flex;gap:5px;align-items:center;padding:3px 8px;border-top:1px solid rgba(255,255,255,.04);background:rgba(126,181,232,.05)">';
@@ -4290,14 +4363,30 @@ function _buildOrderGraph(tabId){
   // 1. Order anchor
   if(s.mode === 'new'){
     const today = s.effectiveDate || new Date().toISOString().slice(0,10);
-    records.push({ referenceId:'refOrder', record:{
+    const orderRec = {
       attributes:{ type:'Order', method:'POST' },
       AccountId: s.accountId,
       EffectiveDate: today,
       Pricebook2Id: s.pricebook2Id,
       Status: 'Draft',
       Name: s.orderName || 'New Order'
-    }});
+    };
+    if(s.contractId)      orderRec.ContractId = s.contractId;
+    if(s.currencyIsoCode) orderRec.CurrencyIsoCode = s.currencyIsoCode;
+    if(s.billToContactId) orderRec.BillToContactId = s.billToContactId;
+    if(s.billingStreet){
+      orderRec.BillingStreet = s.billingStreet;
+      if(s.billingCity)       orderRec.BillingCity = s.billingCity;
+      if(s.billingPostalCode) orderRec.BillingPostalCode = s.billingPostalCode;
+      if(s.billingCountry)    orderRec.BillingCountry = s.billingCountry;
+    }
+    if(s.shippingStreet){
+      orderRec.ShippingStreet = s.shippingStreet;
+      if(s.shippingCity)       orderRec.ShippingCity = s.shippingCity;
+      if(s.shippingPostalCode) orderRec.ShippingPostalCode = s.shippingPostalCode;
+      if(s.shippingCountry)    orderRec.ShippingCountry = s.shippingCountry;
+    }
+    records.push({ referenceId:'refOrder', record: orderRec });
   } else {
     records.push({ referenceId:'refOrder', record:{
       attributes:{ type:'Order', method:'PATCH', id: s.orderId }
@@ -4327,7 +4416,7 @@ function _buildOrderGraph(tabId){
 
   [...postItems, ...patchItems, ...delItems].forEach(item => {
     if(item.op === 'POST'){
-      records.push({ referenceId: item.localRef, record:{
+      const oiRec = {
         attributes:{ type:'OrderItem', method:'POST' },
         OrderId: '@{refOrder.id}',
         OrderActionId: '@{refOrderAction.id}',
@@ -4335,7 +4424,12 @@ function _buildOrderGraph(tabId){
         Product2Id: item.product2Id,
         Quantity: parseFloat(item.qty)||1,
         UnitPrice: parseFloat(item.unitPrice)||0
-      }});
+      };
+      if(item.serviceDate)      oiRec.ServiceDate = item.serviceDate;
+      if(item.periodBoundary)   oiRec.PeriodBoundary = item.periodBoundary;
+      if(item.billingFrequency) oiRec.BillingFrequency2 = item.billingFrequency;
+      if(item.description)      oiRec.Description = item.description;
+      records.push({ referenceId: item.localRef, record: oiRec });
     } else if(item.op === 'PATCH'){
       records.push({ referenceId: item.localRef, record:{
         attributes:{ type:'OrderItem', method:'PATCH', id: item.orderItemId },
@@ -4367,26 +4461,32 @@ function _buildOrderGraph(tabId){
     if(!parent) return;
     const mainId = parent.op==='POST' ? '@{'+parent.localRef+'.id}' : parent.orderItemId;
     const assocId = '@{'+child.localRef+'.id}';
-    records.push({ referenceId:'refOir_'+(qlrIdx++), record:{
+    const oirRec = {
       attributes:{ type:'OrderItemRelationship', method:'POST' },
       MainOrderItemId: mainId,
       AssociatedOrderItemId: assocId,
-      AssociatedOrderItemPricing: 'IncludedInBundlePrice'
-    }});
+      AssociatedOrderItemPricing: child.assocPricing || 'NotIncludedInBundlePrice'
+    };
+    if(child.prcRelCompId) oirRec.ProductRelatedComponentId = child.prcRelCompId;
+    if(child.prcRelTypeId) oirRec.ProductRelationshipTypeId = child.prcRelTypeId;
+    records.push({ referenceId:'refOir_'+(qlrIdx++), record: oirRec });
   });
 
   const opts = s.configOptions;
   return {
     pricingPref: s.pricingPref,
     catalogRatesPref: 'Skip',
-    configurationInput: s.configInput,
-    configurationOptions: {
-      validateProductCatalog:    !!opts.validateProductCatalog,
-      validateAmendRenewCancel:  !!opts.validateAmendRenewCancel,
-      executeConfigurationRules: !!opts.executeConfigurationRules,
-      addDefaultConfiguration:   !!opts.addDefaultConfiguration
+    configurationPref: {
+      configurationMethod: s.configInput,
+      configurationOptions: {
+        validateProductCatalog:    !!opts.validateProductCatalog,
+        validateAmendRenewCancel:  !!opts.validateAmendRenewCancel,
+        executeConfigurationRules: !!opts.executeConfigurationRules,
+        addDefaultConfiguration:   !!opts.addDefaultConfiguration
+      }
     },
-    graph:{ graphId:'orderBuilder', records }
+    taxPref: s.taxPref || 'Skip',
+    graph:{ graphId:'createOrderStructure', records }
   };
 }
 
@@ -4461,8 +4561,8 @@ function executeOrder(tabId){
 
   vscMsg({ type:'executeCustom', requestId, orgAlias,
     method:'POST',
-    path:'/services/data/v67.0/commerce/sales-orders/actions/place',
-    headers:{}, body, apiVersion:'v67.0' });
+    path:'/services/data/v66.0/connect/rev/sales-transaction/actions/place',
+    headers:{}, body, apiVersion:'v66.0' });
 }
 
 function obCopyApex(tabId){
@@ -4470,7 +4570,7 @@ function obCopyApex(tabId){
   try{ body = JSON.stringify(_buildOrderGraph(tabId), null, 2); }
   catch(e){ showToast('Graph error: '+e.message,'error'); return; }
   const apex = `HttpRequest req = new HttpRequest();
-req.setEndpoint(URL.getOrgDomainUrl().toExternalForm() + '/services/data/v67.0/commerce/sales-orders/actions/place');
+req.setEndpoint(URL.getOrgDomainUrl().toExternalForm() + '/services/data/v66.0/connect/rev/sales-transaction/actions/place');
 req.setMethod('POST');
 req.setHeader('Content-Type', 'application/json');
 req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());

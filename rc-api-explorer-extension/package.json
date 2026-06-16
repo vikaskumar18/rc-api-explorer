@@ -2,7 +2,7 @@
   "name": "rc-api-explorer",
   "displayName": "Revenue Cloud API Explorer",
   "description": "Explore, browse and execute Salesforce Revenue Cloud REST APIs directly from VS Code",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "publisher": "vikas-builds",
   "repository": {
     "type": "git",
@@ -59,16 +59,37 @@
         "command": "rcApiExplorer.deleteRun",
         "title": "Delete",
         "icon": "$(trash)"
+      },
+      {
+        "command": "rcApiExplorer.clearAllRuns",
+        "title": "Clear All Runs",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "rcApiExplorer.openProductBrowser",
+        "title": "Revenue Cloud: Open Product Browser",
+        "icon": "$(package)"
       }
     ],
     "menus": {
       "commandPalette": [
         { "command": "rcApiExplorer.openPanel" },
-        { "command": "rcApiExplorer.refreshOrgs" }
+        { "command": "rcApiExplorer.refreshOrgs" },
+        { "command": "rcApiExplorer.openProductBrowser" }
       ],
       "view/title": [
         {
+          "command": "rcApiExplorer.openProductBrowser",
+          "when": "view == rcApiExplorer.runsView",
+          "group": "navigation"
+        },
+        {
           "command": "rcApiExplorer.refreshRuns",
+          "when": "view == rcApiExplorer.runsView",
+          "group": "navigation"
+        },
+        {
+          "command": "rcApiExplorer.clearAllRuns",
           "when": "view == rcApiExplorer.runsView",
           "group": "navigation"
         }

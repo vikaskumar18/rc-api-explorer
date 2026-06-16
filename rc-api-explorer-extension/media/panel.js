@@ -806,7 +806,11 @@ function validateBody(tabId){
   const bodyParams=(ep.params||[]).filter(p=>{ const loc=p.location||(ep.methods.includes('GET')?'query':'body'); return loc==='body'&&p.req; });
   if(bodyParams.length&&rawBody){
     let parsed=null; try{ parsed=JSON.parse(rawBody); }catch(_){}
-    if(parsed){ bodyParams.forEach(p=>{ if(parsed[p.name]===undefined||parsed[p.name]==='') errors.push('Missing required body param: <code>'+esc(p.name)+'</code>'); }); }
+    if(parsed){
+      // Invocable action format: {"inputs":[{...}]} — check inside inputs[0]
+      const checkObj = (parsed.inputs&&Array.isArray(parsed.inputs)&&parsed.inputs[0]) ? parsed.inputs[0] : parsed;
+      bodyParams.forEach(p=>{ if(checkObj[p.name]===undefined||checkObj[p.name]==='') errors.push('Missing required body param: <code>'+esc(p.name)+'</code>'); });
+    }
     else if(rawBody) errors.push('Request body is not valid JSON');
   } else if(bodyParams.length&&!rawBody){ bodyParams.forEach(p=>errors.push('Missing required body param: <code>'+esc(p.name)+'</code>')); }
 
@@ -2189,7 +2193,10 @@ function openPstBuilderTab(){
     deletedQliIds: new Set(), deletedQlrIds: new Set(),
     patchedQlis:{}, newInserts:[], insertCounter:0,
     newQuote: false,
-    newQuoteFields: { name:'', pricebook2Id:'', currencyIsoCode:'USD', opportunityId:'' }
+    newQuoteFields: { name:'', pricebook2Id:'', currencyIsoCode:'USD', opportunityId:'' },
+    quoteRecord: null,
+    existingAttrs: {},
+    previewActive: false
   };
   renderTabBar();
   const panel = document.createElement('div');
@@ -2254,6 +2261,7 @@ function _buildPstPanel(panel, tabId){
     '</div>'+
 
     '<div id="pst-load-status-'+tabId+'" style="font-size:11px;color:var(--fg3);padding:4px 0;min-height:18px"></div>'+
+    '<div id="pst-quote-info-'+tabId+'" style="display:none;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:11px"></div>'+
     '<div id="pst-tree-'+tabId+'" style="margin-bottom:10px"></div>'+
     '<div style="margin-bottom:12px">'+
     '<button class="btn btn-sec" onclick="pstAddFlatInsert(\''+tabId+'\')" style="font-size:11px">+ Add Flat QLI (no parent)</button>'+
@@ -2312,7 +2320,7 @@ function _buildPstReference(){
     tip('Place Sales Transaction is Revenue Cloud\'s single canonical API for all quote/order mutations — the ONLY correct way to create, update, or delete QLIs, OrderItems, QLRs, and related RC-managed objects.')+
     warn('Never use plain DML (insert/update/delete) on QuoteLineItem. It sets '+code('Quote.ValidationResult = TransactionIncomplete')+' — the quote cannot be activated until repriced via PST.')+
     '<div style="font-size:11px;color:var(--fg2);margin-bottom:6px">Endpoint:</div>'+
-    '<div style="font-family:monospace;font-size:11px;padding:8px 10px;background:var(--bg2);border-radius:4px;border:1px solid var(--border);margin-bottom:8px">POST /services/data/v67.0/sobjects/AsyncOperationTracker</div>'+
+    '<div style="font-family:monospace;font-size:11px;padding:8px 10px;background:var(--bg2);border-radius:4px;border:1px solid var(--border);margin-bottom:8px">POST /services/data/v63.0/connect/rev/sales-transaction/actions/place</div>'+
     '<div style="font-size:11px;color:var(--fg2);margin-bottom:4px">Response on success:</div>'+
     '<div style="font-family:monospace;font-size:10px;padding:8px 10px;background:var(--bg2);border-radius:4px;border:1px solid var(--border);color:var(--green)">{ "isSuccess": true, "salesTransactionId": "0Q0...", "errorResponse": [] }</div>'
   );
@@ -2457,6 +2465,9 @@ function loadQuoteForPst(tabId){
   s.existingQlis = []; s.existingQlrs = [];
   s.deletedQliIds = new Set(); s.deletedQlrIds = new Set();
   s.patchedQlis = {}; s.newInserts = []; s.insertCounter = 0;
+  s.quoteRecord = null; s.existingAttrs = {};
+  const infoEl = document.getElementById('pst-quote-info-'+tabId);
+  if(infoEl) infoEl.style.display = 'none';
   setLoadStatus(tabId, 'Loading QLIs…');
 
   const rId1 = ++reqCounter;
@@ -2475,7 +2486,12 @@ function loadQuoteForPst(tabId){
       unitPrice: q.UnitPrice||''
     }));
 
-    if(!s.existingQlis.length){ setLoadStatus(tabId, 'No QLIs found on this quote.'); _renderPstTree(tabId); return; }
+    if(!s.existingQlis.length){
+      setLoadStatus(tabId, 'No QLIs found on this quote.');
+      _renderPstTree(tabId);
+      _loadQuoteRecord(tabId, orgAlias, 0, 0);
+      return;
+    }
 
     setLoadStatus(tabId, 'Loading QLRs…');
     const ids = s.existingQlis.map(q=>"'"+q.id+"'").join(',');
@@ -2490,8 +2506,8 @@ function loadQuoteForPst(tabId){
           prtId: r.ProductRelationshipTypeId
         }));
       }catch(_){ s.existingQlrs = []; }
-      setLoadStatus(tabId, s.existingQlis.length+' QLIs, '+s.existingQlrs.length+' QLRs loaded.');
       _renderPstTree(tabId);
+      _loadQuoteRecord(tabId, orgAlias, s.existingQlis.length, s.existingQlrs.length);
     };
     vscMsg({ type:'executeCustom', requestId:rId2, orgAlias,
       method:'GET',
@@ -2503,6 +2519,69 @@ function loadQuoteForPst(tabId){
   vscMsg({ type:'executeCustom', requestId:rId1, orgAlias,
     method:'GET',
     path:'/services/data/v67.0/query?q='+q,
+    headers:{}, body:'', apiVersion:'v67.0' });
+}
+
+function _loadQuoteRecord(tabId, orgAlias, qliCount, qlrCount){
+  const s = pstState[tabId];
+  const rId = ++reqCounter;
+  pendingReqs[rId] = (r) => {
+    try{
+      const d = JSON.parse(r.body);
+      const qRec = (d.records && d.records[0]) || (d.Id ? d : null);
+      if(qRec && qRec.Id){
+        s.quoteRecord = qRec;
+        const infoEl = document.getElementById('pst-quote-info-'+tabId);
+        if(infoEl){
+          infoEl.style.display = 'block';
+          infoEl.innerHTML =
+            '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">'+
+            '<span style="font-weight:600;color:var(--fg)">'+esc(qRec.Name||'—')+'</span>'+
+            '<span style="font-family:monospace;font-size:10px;color:var(--fg3)">'+esc(s.quoteId.trim())+'</span>'+
+            (qRec.Status ? '<span style="padding:1px 7px;border-radius:10px;background:var(--bg3);color:var(--fg2);font-size:10px">'+esc(qRec.Status)+'</span>' : '')+
+            (qRec.CurrencyIsoCode ? '<span style="color:var(--fg2)">&#128178; '+esc(qRec.CurrencyIsoCode)+'</span>' : '')+
+            (qRec.Pricebook2 ? '<span style="color:var(--fg2)">&#128214; '+esc(qRec.Pricebook2.Name)+'</span>' : '')+
+            (qRec.Opportunity ? '<span style="color:var(--fg2)">&#128204; '+esc(qRec.Opportunity.Name)+'</span>' : '')+
+            (qRec.Account ? '<span style="color:var(--fg2)">&#127970; '+esc(qRec.Account.Name)+'</span>' : '')+
+            (qRec.TotalPrice != null ? '<span style="color:var(--fg2)">Total: '+esc(String(qRec.TotalPrice))+'</span>' : '')+
+            '</div>';
+        }
+      }
+    }catch(_){}
+
+    // Fetch QuoteLineItemAttributes if we have QLIs
+    if(s.existingQlis.length){
+      const qliIds = s.existingQlis.map(q=>"'"+q.id+"'").join(',');
+      const rIdA = ++reqCounter;
+      pendingReqs[rIdA] = (rA) => {
+        try{
+          const dA = JSON.parse(rA.body);
+          s.existingAttrs = {};
+          (dA.records||[]).forEach(a => {
+            if(!s.existingAttrs[a.QuoteLineItemId]) s.existingAttrs[a.QuoteLineItemId] = [];
+            const defLabel = (a.AttributeDefinition && (a.AttributeDefinition.Label||a.AttributeDefinition.Name)) || a.AttributeDefinitionId;
+            s.existingAttrs[a.QuoteLineItemId].push({ id:a.Id, attrDefId:a.AttributeDefinitionId, attrLabel:defLabel, attrValue:a.AttributeValue||'', picklistValueId:a.AttributePicklistValueId||'', isPriceImpacting:a.IsPriceImpacting });
+          });
+        }catch(_){}
+        const attrCount = Object.values(s.existingAttrs).reduce((n,a)=>n+a.length,0);
+        const msg = qliCount+' QLIs, '+qlrCount+' QLRs'+(attrCount?' , '+attrCount+' Attributes':'')+' loaded.';
+        setLoadStatus(tabId, msg);
+        _renderPstTree(tabId);
+        pstPreview(tabId);
+      };
+      vscMsg({ type:'executeCustom', requestId:rIdA, orgAlias,
+        method:'GET',
+        path:'/services/data/v67.0/query?q='+encodeURIComponent('SELECT Id,QuoteLineItemId,AttributeDefinitionId,AttributeDefinition.Label,AttributeDefinition.Name,AttributeValue,AttributePicklistValueId,IsPriceImpacting FROM QuoteLineItemAttribute WHERE QuoteLineItemId IN ('+qliIds+')'),
+        headers:{}, body:'', apiVersion:'v67.0' });
+    } else {
+      const msg = qliCount ? qliCount+' QLIs, '+qlrCount+' QLRs loaded.' : 'Quote loaded (no QLIs).';
+      setLoadStatus(tabId, msg);
+      pstPreview(tabId);
+    }
+  };
+  vscMsg({ type:'executeCustom', requestId:rId, orgAlias,
+    method:'GET',
+    path:'/services/data/v67.0/query?q='+encodeURIComponent("SELECT Id,Name,Status,CurrencyIsoCode,TotalPrice,Pricebook2Id,Pricebook2.Name,OpportunityId,Opportunity.Name,AccountId,Account.Name FROM Quote WHERE Id='"+s.quoteId.trim()+"'"),
     headers:{}, body:'', apiVersion:'v67.0' });
 }
 
@@ -2547,33 +2626,56 @@ function _renderPstTree(tabId){
         ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg);color:var(--fg3);margin-left:4px">QLR</span>'
         : '';
 
-    let html = '<div style="margin-left:'+indent+'px;margin-bottom:6px;padding:8px 10px;background:'+opBg+';border:1px solid '+(op==='UNCHANGED'?'var(--border)':opColor)+';border-radius:5px;opacity:'+(isDeleted?'0.65':'1')+'">';
-    html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
-    html += '<span id="pst-op-badge-'+tabId+'-'+qli.id+'" style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:'+opBg+';color:'+opColor+';border:1px solid '+opColor+'">'+op+'</span>';
-    html += qlrBadge;
+    const leftBorder = op==='DELETE'?'var(--red)':op==='PATCH'?'var(--yellow)':qlrAsChild?'#2a6496':'var(--acc)';
+    let html = '<div style="margin-left:'+indent+'px;margin-bottom:5px;background:'+opBg+';border:1px solid '+(op==='UNCHANGED'?'var(--border)':opColor)+';border-left:3px solid '+leftBorder+';border-radius:4px;opacity:'+(isDeleted?'0.6':'1')+'">';
+
+    // ── Header row ──
+    html += '<div style="display:flex;align-items:center;gap:5px;padding:6px 8px 4px 8px;border-bottom:1px solid rgba(255,255,255,.05)">';
     if(hasChildren){
-      html += '<button class="icon-btn" style="font-size:10px;padding:1px 4px;color:var(--fg3)" title="Toggle children" onclick="_pstCollapsed[\''+colKey+'\']=!_pstCollapsed[\''+colKey+'\'];_renderPstTree(\''+tabId+'\')">'+(collapsed?'&#9654;':'&#9660;')+'</button>';
-    }
-    html += '<span style="font-size:12px;font-weight:600;color:var(--fg);flex:1">'+esc(qli.name)+'</span>';
-    if(!isDeleted){
-      html += '<button class="icon-btn" style="color:var(--red);font-size:12px;padding:1px 7px" onclick="pstDeleteQli(\''+tabId+'\',\''+qli.id+'\')" title="Mark for delete">&#128465;</button>';
+      html += '<button class="icon-btn" style="font-size:10px;padding:0 3px;color:var(--fg3);flex-shrink:0" onclick="_pstCollapsed[\''+colKey+'\']=!_pstCollapsed[\''+colKey+'\'];_renderPstTree(\''+tabId+'\')">'+(collapsed?'▶':'▼')+'</button>';
     } else {
-      html += '<button class="icon-btn" style="color:var(--fg3);font-size:11px;padding:1px 7px" onclick="pstUndeleteQli(\''+tabId+'\',\''+qli.id+'\')" title="Undo delete">&#8617;</button>';
+      html += '<span style="width:14px;flex-shrink:0"></span>';
+    }
+    html += '<span id="pst-op-badge-'+tabId+'-'+qli.id+'" style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;color:'+opColor+';border:1px solid '+opColor+';flex-shrink:0">'+op+'</span>';
+    if(qlrAsChild) html += '<span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(42,100,150,.25);color:#5b9bd5;flex-shrink:0">QLR</span>';
+    html += '<span style="font-size:12px;font-weight:600;color:var(--fg);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(qli.name)+'</span>';
+    html += '<span style="font-family:monospace;font-size:9px;color:var(--fg3);flex-shrink:0">'+esc(qli.id.slice(0,15))+'…</span>';
+    if(!isDeleted){
+      html += '<button class="icon-btn" style="color:var(--red);font-size:11px;padding:1px 6px;flex-shrink:0" onclick="pstDeleteQli(\''+tabId+'\',\''+qli.id+'\')" title="Mark for delete">🗑</button>';
+    } else {
+      html += '<button class="icon-btn" style="color:var(--fg3);font-size:11px;padding:1px 6px;flex-shrink:0" onclick="pstUndeleteQli(\''+tabId+'\',\''+qli.id+'\')" title="Undo delete">↩</button>';
     }
     html += '</div>';
 
-    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px;color:var(--fg3)">';
-    html += '<span style="font-family:monospace">'+esc(qli.id.slice(0,10))+'…</span>';
-    if(qli.unitPrice) html += '<span>&#36;'+esc(String(qli.unitPrice))+'</span>';
+    // ── Fields + actions row ──
     if(!isDeleted){
-      html += '<label>Qty: <input type="number" class="try-inp" value="'+esc(curQty)+'" min="1" style="width:52px;font-size:11px;padding:2px 5px" onchange="pstPatchQli(\''+tabId+'\',\''+qli.id+'\',\'qty\',this.value)"></label>';
-      html += '<label>BillingFreq: <input class="try-inp" value="'+esc(curBF)+'" placeholder="Monthly" style="width:80px;font-size:11px;padding:2px 5px" onchange="pstPatchQli(\''+tabId+'\',\''+qli.id+'\',\'billingFreq\',this.value)"></label>';
+      html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 8px">';
+      if(qli.unitPrice) html += '<span style="font-size:10px;color:var(--fg2)">💰 '+esc(String(qli.unitPrice))+'</span>';
+      html += '<label style="font-size:10px;color:var(--fg2)">Qty <input type="number" class="try-inp" value="'+esc(curQty)+'" min="1" style="width:48px;font-size:11px;padding:2px 4px" onchange="pstPatchQli(\''+tabId+'\',\''+qli.id+'\',\'qty\',this.value)"></label>';
+      html += '<label style="font-size:10px;color:var(--fg2)">Freq <input class="try-inp" value="'+esc(curBF)+'" placeholder="Monthly" style="width:72px;font-size:11px;padding:2px 4px" onchange="pstPatchQli(\''+tabId+'\',\''+qli.id+'\',\'billingFreq\',this.value)"></label>';
+      html += '<button class="icon-btn" style="font-size:10px;color:var(--acc);margin-left:auto" onclick="pstAddChildInsert(\''+tabId+'\',\''+qli.id+'\',\''+esc(qli.name)+'\')">+ Child QLI</button>';
+      html += '</div>';
     }
-    html += '</div>';
 
-    if(!isDeleted){
-      html += '<button class="icon-btn" style="font-size:10px;margin-top:6px;color:var(--acc)" onclick="pstAddChildInsert(\''+tabId+'\',\''+qli.id+'\',\''+esc(qli.name)+'\')">+ Add Child QLI</button>';
+    // ── Attributes table ──
+    const existAttrs = s.existingAttrs[qli.id]||[];
+    if(existAttrs.length){
+      html += '<div style="margin:0 8px 6px 8px;border:1px solid rgba(255,255,255,.07);border-radius:3px;overflow:hidden">';
+      html += '<div style="background:rgba(255,255,255,.04);padding:3px 7px;font-size:9px;font-weight:600;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px">Attributes ('+existAttrs.length+')</div>';
+      existAttrs.forEach(a => {
+        const val = a.picklistValueId||a.attrValue||'—';
+        const displayLabel = a.attrLabel && a.attrLabel !== a.attrDefId ? a.attrLabel : a.attrDefId.slice(0,15)+'…';
+        const shortVal = val.slice(0,22)+(val.length>22?'…':'');
+        const isPicklist = !!a.picklistValueId;
+        html += '<div style="display:flex;gap:6px;padding:3px 7px;font-size:10px;border-top:1px solid rgba(255,255,255,.04);align-items:center" title="AttrDef ID: '+esc(a.attrDefId)+'\nValue: '+esc(val)+'">';
+        html += '<span style="color:var(--fg2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">'+esc(displayLabel)+'</span>';
+        html += '<span style="font-size:9px;padding:0 4px;border-radius:2px;background:'+(isPicklist?'rgba(80,150,80,.2)':'rgba(80,120,200,.2)')+';color:'+(isPicklist?'#7ec87e':'#7eb5e8')+';flex-shrink:0">'+(isPicklist?'picklist':'text')+'</span>';
+        html += '<span style="font-family:monospace;color:var(--fg2);flex:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right">'+esc(shortVal)+'</span>';
+        html += '</div>';
+      });
+      html += '</div>';
     }
+
     html += '</div>';
 
     // Render children only when not collapsed
@@ -2603,6 +2705,31 @@ function _renderPstTree(tabId){
     });
   }
   treeEl.innerHTML = html;
+  if(s.previewActive) pstPreview(tabId);
+}
+
+function _renderAttrRows(ins, tabId){
+  if(!ins.attrs || !ins.attrs.length) return '';
+  let html = '<div style="margin:4px 0 0 0;border:1px solid rgba(255,255,255,.07);border-radius:3px;overflow:hidden">';
+  html += '<div style="background:rgba(255,255,255,.04);padding:3px 7px;font-size:9px;font-weight:600;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px">Attributes ('+ins.attrs.length+')</div>';
+  ins.attrs.forEach((attr, i) => {
+    const isPicklist = attr.usePicklist !== false;
+    html += '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:4px 7px;border-top:1px solid rgba(255,255,255,.04);background:rgba(0,0,0,.15)">';
+    html += '<label style="font-size:10px;color:var(--fg2)">Def <input class="try-inp" value="'+esc(attr.attrDefId)+'" placeholder="0Yf…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" onchange="pstUpdateAttr(\''+tabId+'\',\''+ins.localRef+'\','+i+',\'attrDefId\',this.value)"></label>';
+    html += '<select class="try-inp" style="font-size:10px;padding:2px 4px;color:var(--fg2)" onchange="pstUpdateAttr(\''+tabId+'\',\''+ins.localRef+'\','+i+',\'usePicklist\',this.value)">'+
+      '<option value="picklist"'+(isPicklist?' selected':'')+'>Picklist</option>'+
+      '<option value="text"'+(!isPicklist?' selected':'')+'>Text</option>'+
+      '</select>';
+    if(isPicklist){
+      html += '<label style="font-size:10px;color:var(--fg2)">Value ID <input class="try-inp" value="'+esc(attr.picklistValueId)+'" placeholder="0Yg…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" onchange="pstUpdateAttr(\''+tabId+'\',\''+ins.localRef+'\','+i+',\'picklistValueId\',this.value)"></label>';
+    } else {
+      html += '<label style="font-size:10px;color:var(--fg2)">Value <input class="try-inp" value="'+esc(attr.attrValue)+'" placeholder="value" style="width:90px;font-size:11px;padding:2px 4px" onchange="pstUpdateAttr(\''+tabId+'\',\''+ins.localRef+'\','+i+',\'attrValue\',this.value)"></label>';
+    }
+    html += '<button class="icon-btn" style="color:var(--red);font-size:10px;padding:1px 4px;margin-left:auto" onclick="pstRemoveAttr(\''+tabId+'\',\''+ins.localRef+'\','+i+')">✕</button>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
 }
 
 function renderInsertCard(ins, depth, tabId){
@@ -2612,21 +2739,27 @@ function renderInsertCard(ins, depth, tabId){
     ? 'child of '+esc(ins.parentLabel || ins.parentRef.slice(0,12))
     : 'flat (no parent)';
 
-  let html = '<div style="margin-left:'+indent+'px;margin-bottom:6px;padding:8px 10px;background:#0a2a0a;border:1px solid var(--green);border-radius:5px">'+
-    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'+
-    '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:3px;background:#0a2a0a;color:var(--green);border:1px solid var(--green)">NEW</span>'+
-    '<span style="font-size:10px;color:var(--fg3)">'+parentLabel+'</span>'+
-    '<button class="icon-btn" style="color:var(--red);font-size:12px;padding:1px 7px;margin-left:auto" onclick="pstRemoveInsert(\''+tabId+'\',\''+ins.localRef+'\')">&#10005;</button>'+
-    '</div>'+
-    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-    '<label style="font-size:10px;color:var(--fg2)">Product2Id <input class="try-inp" value="'+esc(ins.product2Id)+'" placeholder="01t..." style="width:130px;font-size:11px;font-family:monospace;padding:2px 5px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'product2Id\',this.value)"></label>'+
-    '<label style="font-size:10px;color:var(--fg2)">PBE Id <input class="try-inp" value="'+esc(ins.pbeId)+'" placeholder="01u..." style="width:130px;font-size:11px;font-family:monospace;padding:2px 5px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'pbeId\',this.value)"></label>'+
-    '<label style="font-size:10px;color:var(--fg2)">Qty <input type="number" class="try-inp" value="'+esc(ins.qty||'1')+'" min="1" style="width:52px;font-size:11px;padding:2px 5px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'qty\',this.value)"></label>'+
-    '<label style="font-size:10px;color:var(--fg2)">BillingFreq <input class="try-inp" value="'+esc(ins.billingFreq||'')+'" placeholder="Monthly" style="width:80px;font-size:11px;padding:2px 5px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'billingFreq\',this.value)"></label>'+
-    '</div>'+
-    '<div style="font-size:9px;color:var(--fg3);margin-top:4px;font-family:monospace">ref: '+esc(ins.localRef)+'</div>'+
-    '<button class="icon-btn" style="font-size:10px;margin-top:6px;color:var(--acc)" onclick="pstAddChildInsert(\''+tabId+'\',\''+ins.localRef+'\',\''+esc(ins.product2Id||ins.localRef)+'\')">+ Add Child QLI</button>'+
-    '</div>';
+  let html = '<div style="margin-left:'+indent+'px;margin-bottom:5px;background:#071a07;border:1px solid var(--green);border-left:3px solid var(--green);border-radius:4px">';
+  // Header
+  html += '<div style="display:flex;align-items:center;gap:5px;padding:6px 8px 4px 8px;border-bottom:1px solid rgba(255,255,255,.05)">';
+  html += '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;color:var(--green);border:1px solid var(--green);flex-shrink:0">NEW</span>';
+  html += '<span style="font-size:10px;color:var(--fg3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+parentLabel+'</span>';
+  html += '<span style="font-family:monospace;font-size:9px;color:var(--fg3);flex-shrink:0">'+esc(ins.localRef)+'</span>';
+  html += '<button class="icon-btn" style="color:var(--red);font-size:11px;padding:1px 6px;flex-shrink:0" onclick="pstRemoveInsert(\''+tabId+'\',\''+ins.localRef+'\')">✕</button>';
+  html += '</div>';
+  // Fields row
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:5px 8px">';
+  html += '<label style="font-size:10px;color:var(--fg2)">Prod <input class="try-inp" value="'+esc(ins.product2Id)+'" placeholder="01t…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'product2Id\',this.value)"></label>';
+  html += '<label style="font-size:10px;color:var(--fg2)">PBE <input class="try-inp" value="'+esc(ins.pbeId)+'" placeholder="01u…" style="width:110px;font-size:11px;font-family:monospace;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'pbeId\',this.value)"></label>';
+  html += '<label style="font-size:10px;color:var(--fg2)">Qty <input type="number" class="try-inp" value="'+esc(ins.qty||'1')+'" min="1" style="width:46px;font-size:11px;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'qty\',this.value)"></label>';
+  html += '<label style="font-size:10px;color:var(--fg2)">Freq <input class="try-inp" value="'+esc(ins.billingFreq||'')+'" placeholder="Monthly" style="width:70px;font-size:11px;padding:2px 4px" onchange="pstUpdateInsert(\''+tabId+'\',\''+ins.localRef+'\',\'billingFreq\',this.value)"></label>';
+  html += '<button class="icon-btn" style="font-size:10px;color:var(--acc);margin-left:auto" onclick="pstAddAttr(\''+tabId+'\',\''+ins.localRef+'\')">+ Attr</button>';
+  html += '<button class="icon-btn" style="font-size:10px;color:var(--acc)" onclick="pstAddChildInsert(\''+tabId+'\',\''+ins.localRef+'\',\''+esc(ins.product2Id||ins.localRef)+'\')">+ Child QLI</button>';
+  html += '</div>';
+  // Attr rows
+  const attrHtml = _renderAttrRows(ins, tabId);
+  if(attrHtml) html += '<div style="padding:0 8px 6px 8px">'+attrHtml+'</div>';
+  html += '</div>';
 
   // Recursively render any new inserts that are children of this insert
   s.newInserts.filter(child => child.parentRef === ins.localRef).forEach(child => {
@@ -2674,7 +2807,7 @@ function pstPatchQli(tabId, qliId, field, value){
 function pstAddChildInsert(tabId, parentQliId, parentName){
   const s = pstState[tabId];
   const localRef = 'ref_ins_' + (s.insertCounter++);
-  s.newInserts.push({ localRef, product2Id:'', pbeId:'', qty:'1', billingFreq:'', parentRef: parentQliId, parentLabel: parentName });
+  s.newInserts.push({ localRef, product2Id:'', pbeId:'', qty:'1', billingFreq:'', parentRef: parentQliId, parentLabel: parentName, attrs:[] });
   _renderPstTree(tabId);
 }
 
@@ -2699,7 +2832,7 @@ function pstToggleNewQuote(tabId, checked){
 function pstAddFlatInsert(tabId){
   const s = pstState[tabId];
   const localRef = 'ref_ins_' + (s.insertCounter++);
-  s.newInserts.push({ localRef, product2Id:'', pbeId:'', qty:'1', billingFreq:'', parentRef:'', parentLabel:'' });
+  s.newInserts.push({ localRef, product2Id:'', pbeId:'', qty:'1', billingFreq:'', parentRef:'', parentLabel:'', attrs:[] });
   _renderPstTree(tabId);
 }
 
@@ -2707,6 +2840,28 @@ function pstRemoveInsert(tabId, localRef){
   const s = pstState[tabId];
   s.newInserts = s.newInserts.filter(ins => ins.localRef !== localRef);
   _renderPstTree(tabId);
+}
+
+function pstAddAttr(tabId, localRef){
+  const s = pstState[tabId];
+  const ins = s.newInserts.find(i => i.localRef === localRef);
+  if(!ins) return;
+  ins.attrs.push({ attrDefId:'', usePicklist:true, picklistValueId:'', attrValue:'' });
+  _renderPstTree(tabId);
+}
+function pstRemoveAttr(tabId, localRef, attrIdx){
+  const s = pstState[tabId];
+  const ins = s.newInserts.find(i => i.localRef === localRef);
+  if(!ins) return;
+  ins.attrs.splice(attrIdx, 1);
+  _renderPstTree(tabId);
+}
+function pstUpdateAttr(tabId, localRef, attrIdx, field, value){
+  const s = pstState[tabId];
+  const ins = s.newInserts.find(i => i.localRef === localRef);
+  if(!ins || !ins.attrs[attrIdx]) return;
+  if(field === 'usePicklist') ins.attrs[attrIdx].usePicklist = value === 'picklist';
+  else ins.attrs[attrIdx][field] = value;
 }
 
 function pstUpdateInsert(tabId, localRef, field, value){
@@ -2730,19 +2885,19 @@ function _buildPstGraph(tabId){
     records.push({ referenceId:'refQuote', record:quoteRec });
   } else {
     records.push({ referenceId:'refQuote',
-      record:{ attributes:{type:'Quote',method:'PATCH'}, id:s.quoteId.trim() }});
+      record:{ attributes:{type:'Quote', method:'PATCH', id:s.quoteId.trim() } }});
   }
 
   // 2. QLR DELETEs
   s.deletedQlrIds.forEach(id => {
     records.push({ referenceId:'refDelQlr_'+id.slice(-6),
-      record:{ attributes:{type:'QuoteLineRelationship',method:'DELETE'}, id }});
+      record:{ attributes:{type:'QuoteLineRelationship', method:'DELETE', id } }});
   });
 
   // 3. QLI DELETEs
   s.deletedQliIds.forEach(id => {
     records.push({ referenceId:'refDelQli_'+id.slice(-6),
-      record:{ attributes:{type:'QuoteLineItem',method:'DELETE'}, id }});
+      record:{ attributes:{type:'QuoteLineItem', method:'DELETE', id } }});
   });
 
   // 4. QLI PATCHes
@@ -2752,13 +2907,13 @@ function _buildPstGraph(tabId){
     if(!orig) return;
     const changed = patch.qty !== orig.qty || patch.billingFreq !== orig.billingFreq;
     if(!changed) return;
-    const rec = { attributes:{type:'QuoteLineItem',method:'PATCH'}, id:qliId };
+    const rec = { attributes:{type:'QuoteLineItem', method:'PATCH', id:qliId } };
     if(patch.qty !== orig.qty) rec.Quantity = patch.qty;
     if(patch.billingFreq !== orig.billingFreq) rec.BillingFrequency = patch.billingFreq||null;
     records.push({ referenceId:'refPatch_'+qliId.slice(-6), record:rec });
   });
 
-  // 5. QLI POSTs
+  // 5. QLI POSTs + inline QuoteLineItemAttribute POSTs
   s.newInserts.forEach(ins => {
     const rec = {
       attributes:{type:'QuoteLineItem',method:'POST'},
@@ -2769,6 +2924,20 @@ function _buildPstGraph(tabId){
     };
     if(ins.billingFreq.trim()) rec.BillingFrequency = ins.billingFreq.trim();
     records.push({ referenceId: ins.localRef, record: rec });
+    (ins.attrs||[]).forEach((attr, ai) => {
+      if(!attr.attrDefId.trim()) return;
+      const attrRec = {
+        attributes:{ type:'QuoteLineItemAttribute', method:'POST' },
+        QuoteLineItemId: '@{'+ins.localRef+'.id}',
+        AttributeDefinitionId: attr.attrDefId.trim()
+      };
+      if(attr.usePicklist !== false){
+        if(attr.picklistValueId.trim()) attrRec.AttributePicklistValueId = attr.picklistValueId.trim();
+      } else {
+        if(attr.attrValue.trim()) attrRec.AttributeValue = attr.attrValue.trim();
+      }
+      records.push({ referenceId: ins.localRef+'_attr'+ai, record: attrRec });
+    });
   });
 
   // 6. QLR POSTs — one per insert with a parentRef
@@ -2789,15 +2958,93 @@ function _buildPstGraph(tabId){
       }});
   });
 
-  return { inputs:[{
+  return {
     pricingPref: s.pricingPref,
-    configurationInput: s.configInput,
+    configurationPref: { configurationMethod: s.configInput },
     graph:{ graphId:'pstBuilder', records }
-  }]};
+  };
+}
+
+function _buildFullPstGraph(tabId){
+  const s = pstState[tabId];
+  const records = [];
+
+  // Quote anchor
+  records.push({ referenceId:'refQuote', record:{ attributes:{type:'Quote', method:'PATCH', id:s.quoteId.trim() }}});
+
+  // All existing QLIs — DELETE / PATCH / no-op (include all for full picture)
+  s.existingQlis.forEach(qli => {
+    const isDeleted = s.deletedQliIds.has(qli.id);
+    const patched = s.patchedQlis[qli.id];
+    const hasChanges = patched && (patched.qty !== qli.qty || patched.billingFreq !== qli.billingFreq);
+
+    if(isDeleted){
+      // QLR DELETE first
+      s.existingQlrs.filter(r => r.assocQliId === qli.id).forEach(r => {
+        records.push({ referenceId:'refDelQlr_'+r.id.slice(-6), record:{ attributes:{type:'QuoteLineRelationship', method:'DELETE', id:r.id }}});
+      });
+      records.push({ referenceId:'refDelQli_'+qli.id.slice(-6), record:{ attributes:{type:'QuoteLineItem', method:'DELETE', id:qli.id }}});
+    } else if(hasChanges){
+      const rec = { attributes:{type:'QuoteLineItem', method:'PATCH', id:qli.id } };
+      if(patched.qty !== qli.qty) rec.Quantity = patched.qty;
+      if(patched.billingFreq !== qli.billingFreq) rec.BillingFrequency = patched.billingFreq||null;
+      records.push({ referenceId:'refPatch_'+qli.id.slice(-6), record:rec });
+    } else {
+      // Unchanged — shown in full structure preview only
+      records.push({ referenceId:'refExist_'+qli.id.slice(-6), record:{ attributes:{type:'QuoteLineItem', method:'PATCH', id:qli.id }, _note:'UNCHANGED' }});
+    }
+
+    // Existing attributes for this QLI
+    (s.existingAttrs[qli.id]||[]).forEach((a,ai) => {
+      const attrRec = { attributes:{type:'QuoteLineItemAttribute', method:'PATCH', id:a.id } };
+      if(a.picklistValueId) attrRec.AttributePicklistValueId = a.picklistValueId;
+      else if(a.attrValue) attrRec.AttributeValue = a.attrValue;
+      attrRec._attrDef = a.attrDefId;
+      records.push({ referenceId:'refExistAttr_'+qli.id.slice(-6)+'_'+ai, record:attrRec });
+    });
+  });
+
+  // Existing QLRs (non-deleted) — show structure
+  s.existingQlrs.forEach(r => {
+    if(s.deletedQlrIds.has(r.id)) return;
+    records.push({ referenceId:'refExistQlr_'+r.id.slice(-6), record:{
+      attributes:{type:'QuoteLineRelationship', method:'PATCH', id:r.id },
+      _main:r.mainQliId, _assoc:r.assocQliId
+    }});
+  });
+
+  // New QLI inserts + their attrs + QLRs
+  s.newInserts.forEach(ins => {
+    const rec = { attributes:{type:'QuoteLineItem',method:'POST'}, QuoteId:'@{refQuote.id}',
+      Product2Id:ins.product2Id.trim(), PricebookEntryId:ins.pbeId.trim(), Quantity:ins.qty||'1' };
+    if(ins.billingFreq.trim()) rec.BillingFrequency = ins.billingFreq.trim();
+    records.push({ referenceId:ins.localRef, record:rec });
+    (ins.attrs||[]).forEach((attr,ai) => {
+      if(!attr.attrDefId.trim()) return;
+      const attrRec = { attributes:{type:'QuoteLineItemAttribute',method:'POST'},
+        QuoteLineItemId:'@{'+ins.localRef+'.id}', AttributeDefinitionId:attr.attrDefId.trim() };
+      if(attr.usePicklist !== false && attr.picklistValueId.trim()) attrRec.AttributePicklistValueId = attr.picklistValueId.trim();
+      else if(attr.usePicklist === false && attr.attrValue.trim()) attrRec.AttributeValue = attr.attrValue.trim();
+      records.push({ referenceId:ins.localRef+'_attr'+ai, record:attrRec });
+    });
+  });
+  s.newInserts.forEach((ins,idx) => {
+    if(!ins.parentRef) return;
+    const isRef = ins.parentRef.startsWith('ref_ins_');
+    const mainId = isRef ? '@{'+ins.parentRef+'.id}' : ins.parentRef;
+    records.push({ referenceId:'refQlr_new_'+idx, record:{
+      attributes:{type:'QuoteLineRelationship',method:'POST'},
+      ProductRelationshipTypeId:'{{PRT_ID}}', MainQuoteLineId:mainId,
+      AssociatedQuoteLineId:'@{'+ins.localRef+'.id}', AssociatedQuoteLinePricing:'IncludedInBundlePrice'
+    }});
+  });
+
+  return { pricingPref:s.pricingPref, configurationPref:{ configurationMethod:s.configInput }, graph:{ graphId:'pstBuilder', records }};
 }
 
 function pstPreview(tabId){
   const s = pstState[tabId];
+  s.previewActive = true;
   const respEl = document.getElementById('pst-resp-'+tabId);
   try{
     const graph = _buildPstGraph(tabId);
@@ -2812,7 +3059,7 @@ function pstPreview(tabId){
       };
       prefix = '// Step 1: POST /services/data/v67.0/sobjects/Quote\n'+
                JSON.stringify(quotePayload, null, 2)+
-               '\n\n// Step 2: POST /services/data/v67.0/sobjects/AsyncOperationTracker\n// (quoteId from Step 1 substituted as Quote anchor PATCH)\n';
+               '\n\n// Step 2: POST /services/data/v63.0/connect/rev/sales-transaction/actions/place\n// (quoteId from Step 1 substituted as Quote anchor PATCH)\n';
       // Show what the PST graph looks like with a placeholder ID
       const savedId = s.quoteId;
       s.quoteId = '<NEW_QUOTE_ID_FROM_STEP1>';
@@ -2822,8 +3069,39 @@ function pstPreview(tabId){
       respEl.style.color = 'var(--fg)';
       respEl.textContent = prefix + JSON.stringify(pstPreviewGraph, null, 2);
     } else {
+      let out = '';
+
+      // Quote info header
+      if(s.quoteRecord){
+        const q = s.quoteRecord;
+        out += '// ════════════════════════════════════════════════════\n';
+        out += '// QUOTE: '+q.Name+'\n';
+        out += '// ID:    '+s.quoteId.trim()+'\n';
+        out += '// Status: '+(q.Status||'—')+'  |  Currency: '+(q.CurrencyIsoCode||'—')+'  |  Pricebook: '+(q.Pricebook2&&q.Pricebook2.Name||'—')+'\n';
+        if(q.Account&&q.Account.Name)    out += '// Account:     '+q.Account.Name+'\n';
+        if(q.Opportunity&&q.Opportunity.Name) out += '// Opportunity: '+q.Opportunity.Name+'\n';
+        out += '// ════════════════════════════════════════════════════\n\n';
+      }
+
+      // Section 1 — Full structure (all QLIs + attrs + QLRs)
+      const fullGraph = _buildFullPstGraph(tabId);
+      out += '// ┌─ SECTION 1: FULL QUOTE STRUCTURE (complete picture)\n';
+      out += '// │  Includes all existing QLIs, attributes, QLRs and any new inserts.\n';
+      out += '// │  NOTE: _note fields and _attrDef/_main/_assoc are for display only.\n';
+      out += '// └────────────────────────────────────────────────────\n';
+      out += JSON.stringify(fullGraph, null, 2);
+
+      // Section 2 — Delta only (what actually gets sent)
+      const deltaRecords = graph.graph.records;
+      const nonAnchor = deltaRecords.filter(r => r.referenceId !== 'refQuote');
+      out += '\n\n\n// ┌─ SECTION 2: ACTUAL PST PAYLOAD (delta only — what will be sent)\n';
+      out += '// │  Only changed/deleted/new nodes. UNCHANGED QLIs are omitted.\n';
+      out += '// │  Delta: '+nonAnchor.length+' record(s) beyond Quote anchor.\n';
+      out += '// └────────────────────────────────────────────────────\n';
+      out += JSON.stringify(graph, null, 2);
+
       respEl.style.color = 'var(--fg)';
-      respEl.textContent = JSON.stringify(graph, null, 2);
+      respEl.textContent = out;
     }
   }catch(e){
     respEl.style.color = 'var(--red)';
@@ -2863,13 +3141,13 @@ function _executePstExisting(tabId, orgAlias){
   const requestId = ++reqCounter;
   pendingReqs[requestId] = (result) => {
     btn.disabled = false; btn.textContent = '▶ Execute PST';
-    _showPstResult(tabId, result, 'POST', '/services/data/v67.0/sobjects/AsyncOperationTracker');
+    _showPstResult(tabId, result, 'POST', '/services/data/v63.0/connect/rev/sales-transaction/actions/place');
   };
 
   vscMsg({ type:'executeCustom', requestId, orgAlias,
     method:'POST',
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker',
-    headers:{}, body, apiVersion:'v67.0' });
+    path:'/services/data/v63.0/connect/rev/sales-transaction/actions/place',
+    headers:{}, body, apiVersion:'v63.0' });
 }
 
 function _executePstNewQuote(tabId, orgAlias){
@@ -2912,15 +3190,16 @@ function _executePstNewQuote(tabId, orgAlias){
           (errs?'<ul style="margin:6px 0 0 16px;font-size:11px;color:var(--red)">'+errs+'</ul>':'');
       }
     }
+    s.previewActive = false;
     respEl.style.color = isOk ? 'var(--fg)' : 'var(--yellow)';
     respEl.textContent = parsed ? JSON.stringify(parsed, null, 2) : result.body;
-    updateStatusBar('POST', '/services/data/v67.0/sobjects/AsyncOperationTracker', result.status, result.durationMs);
+    updateStatusBar('POST', '/services/data/v63.0/connect/rev/sales-transaction/actions/place', result.status, result.durationMs);
   };
 
   vscMsg({ type:'executeCustom', requestId, orgAlias,
     method:'POST',
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker',
-    headers:{}, body, apiVersion:'v67.0' });
+    path:'/services/data/v63.0/connect/rev/sales-transaction/actions/place',
+    headers:{}, body, apiVersion:'v63.0' });
 }
 
 function _showPstResult(tabId, result, method, path){
@@ -2937,6 +3216,7 @@ function _showPstResult(tabId, result, method, path){
         (errs?'<ul style="margin:6px 0 0 16px;font-size:11px;color:var(--red)">'+errs+'</ul>':'');
     }
   }
+  pstState[tabId].previewActive = false;
   respEl.style.color = isOk ? 'var(--fg)' : 'var(--yellow)';
   respEl.textContent = parsed ? JSON.stringify(parsed, null, 2) : result.body;
   updateStatusBar(method, path, result.status, result.durationMs);
@@ -2983,6 +3263,19 @@ function copyPstApex(tabId){
         if(ins.billingFreq) lines.push('    // ,\'BillingFrequency\' => \''+ins.billingFreq+'\'');
         lines.push('};');
         lines.push('records.add(new RevSalesTrxn.RecordWithReferenceRequest(\''+ins.localRef+'\', qli'+idx+'));');
+        (ins.attrs||[]).forEach((attr, ai) => {
+          if(!attr.attrDefId.trim()) return;
+          lines.push('RevSalesTrxn.RecordResource attr'+idx+'_'+ai+' = new RevSalesTrxn.RecordResource(Schema.getGlobalDescribe().get(\'QuoteLineItemAttribute\'), \'POST\');');
+          lines.push('attr'+idx+'_'+ai+'.fieldValues = new Map<String,Object>{');
+          lines.push('    \'QuoteLineItemId\'        => \'@{'+ins.localRef+'.id}\',');
+          lines.push('    \'AttributeDefinitionId\' => \''+attr.attrDefId.trim()+'\'');
+          if(attr.usePicklist !== false && attr.picklistValueId.trim())
+            lines.push('    ,\'AttributePicklistValueId\' => \''+attr.picklistValueId.trim()+'\'');
+          else if(attr.usePicklist === false && attr.attrValue.trim())
+            lines.push('    ,\'AttributeValue\' => \''+attr.attrValue.trim()+'\'');
+          lines.push('};');
+          lines.push('records.add(new RevSalesTrxn.RecordWithReferenceRequest(\''+ins.localRef+'_attr'+ai+'\', attr'+idx+'_'+ai+'));');
+        });
         if(ins.parentRef){
           const isRef = ins.parentRef.startsWith('ref_ins_');
           const mainId = isRef ? '@{'+ins.parentRef+'.id}' : ins.parentRef;
@@ -3035,6 +3328,12 @@ function copyPstApex(tabId){
           const parentArg = isRef ? ins.parentRef : '\''+ins.parentRef+'\'';
           lines.push('b.addQLR('+parentArg+', '+ins.localRef+');');
         }
+        (ins.attrs||[]).forEach((attr, ai) => {
+          if(!attr.attrDefId.trim()) return;
+          lines.push('b.addQLIAttr('+ins.localRef+', \''+attr.attrDefId.trim()+'\''+
+            (attr.usePicklist !== false && attr.picklistValueId.trim() ? ', \''+attr.picklistValueId.trim()+'\', null' :
+             attr.usePicklist === false && attr.attrValue.trim() ? ', null, \''+attr.attrValue.trim()+'\'' : ', null, null')+');');
+        });
         lines.push('');
       });
     }
@@ -3054,7 +3353,7 @@ function openSwapBuilderTab(){
   if(existing){ activateTab(existing.id); return; }
   const tabId = 'tab-' + (++tabCounter);
   tabs.push({ id: tabId, type: 'swap-builder', label: 'Swap Builder' });
-  swapState[tabId] = { swapStartDate:'', outputRecordType:'Quote', groups:[], groupCounter:0 };
+  swapState[tabId] = { swapStartDate:'', outputRecordType:'Quote', groups:[], groupCounter:0, mode:'form', rawJson:'' };
   renderTabBar();
   const panel = document.createElement('div');
   panel.id = 'tp-' + tabId;
@@ -3068,11 +3367,19 @@ function _buildSwapPanel(panel, tabId){
   panel.innerHTML =
     '<div class="d-title">&#8646; Swap Builder</div>'+
 
-    '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px">'+
+    '<div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:14px;align-items:flex-end;justify-content:space-between">'+
+    '<div style="display:flex;gap:0">'+
     '<button id="swap-itab-builder-'+tabId+'" onclick="swapInnerTab(\''+tabId+'\',\'builder\')" '+
     'style="padding:5px 16px;font-size:11px;font-weight:600;background:#8e44ad;color:#fff;border:none;border-radius:4px 4px 0 0;cursor:pointer;margin-right:2px">Builder</button>'+
     '<button id="swap-itab-ref-'+tabId+'" onclick="swapInnerTab(\''+tabId+'\',\'ref\')" '+
     'style="padding:5px 16px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--fg2);border:none;border-radius:4px 4px 0 0;cursor:pointer">Reference</button>'+
+    '</div>'+
+    '<div style="display:flex;gap:2px;margin-bottom:1px">'+
+    '<button id="swap-mode-form-'+tabId+'" onclick="swapToggleMode(\''+tabId+'\',\'form\')" '+
+    'style="padding:3px 10px;font-size:10px;font-weight:600;background:#8e44ad;color:#fff;border:none;border-radius:4px 4px 0 0;cursor:pointer">&#9776; Form</button>'+
+    '<button id="swap-mode-raw-'+tabId+'" onclick="swapToggleMode(\''+tabId+'\',\'raw\')" '+
+    'style="padding:3px 10px;font-size:10px;font-weight:600;background:var(--bg3);color:var(--fg2);border:none;border-radius:4px 4px 0 0;cursor:pointer">&#123;&#125; Raw JSON</button>'+
+    '</div>'+
     '</div>'+
 
     '<div id="swap-inner-builder-'+tabId+'">'+
@@ -3101,6 +3408,14 @@ function _buildSwapPanel(panel, tabId){
     '<div id="swap-groups-'+tabId+'" style="margin-top:8px">'+
     '<div style="color:var(--fg3);font-size:11px;text-align:center;padding:16px 0">No groups yet — click "+ Add Group"</div>'+
     '</div></div>'+
+
+    '<div id="swap-raw-'+tabId+'" style="display:none;margin-bottom:10px">'+
+    '<div style="font-size:11px;color:var(--fg3);margin-bottom:5px">Paste or edit the full JSON payload. Variables like <code>{{VAR}}</code> are substituted on execute.</div>'+
+    '<div id="swap-raw-err-'+tabId+'" style="color:#e74c3c;font-size:11px;margin-bottom:4px;display:none"></div>'+
+    '<textarea id="swap-raw-txt-'+tabId+'" spellcheck="false" '+
+    'style="width:100%;height:360px;font-family:monospace;font-size:12px;padding:8px;box-sizing:border-box;background:var(--bg3);color:var(--fg1);border:1px solid var(--border);border-radius:4px;resize:vertical;line-height:1.4" '+
+    'oninput="swapState[\''+tabId+'\'].rawJson=this.value"></textarea>'+
+    '</div>'+
 
     '<div class="btn-row" style="margin-bottom:10px">'+
     '<button class="btn btn-sec" onclick="swapPreviewJson(\''+tabId+'\')">&#128269; Preview JSON</button>'+
@@ -3138,10 +3453,13 @@ function swapInnerTab(tabId, which){
 function swapAddGroup(tabId){
   const s = swapState[tabId];
   const gid = s.groupCounter++;
+  const gNum = s.groups.length + 1;
   s.groups.push({
     localId: 'sg_'+gid,
+    referenceId: '',
+    graphId: '',
     outAssets:   [{ localId:'oa_0', assetId:'', quantity:'1' }],
-    inRecords:   [{ localId:'ir_0', product2Id:'', pbeId:'', unitPrice:'0', startDate:'' }],
+    inRecords:   [{ localId:'ir_0', product2Id:'', pbeId:'', unitPrice:'0', quantity:'1', startDate:'' }],
     assetCounter: 1,
     recordCounter: 1
   });
@@ -3171,7 +3489,7 @@ function swapRemoveAsset(tabId, gLocalId, aLocalId){
 function swapAddRecord(tabId, gLocalId){
   const g = swapState[tabId].groups.find(x => x.localId === gLocalId);
   if(!g) return;
-  g.inRecords.push({ localId:'ir_'+(g.recordCounter++), product2Id:'', pbeId:'', unitPrice:'0', startDate:'' });
+  g.inRecords.push({ localId:'ir_'+(g.recordCounter++), product2Id:'', pbeId:'', unitPrice:'0', quantity:'1', startDate:'' });
   _renderSwapGroups(tabId);
 }
 
@@ -3209,10 +3527,12 @@ function _renderSwapGroups(tabId){
         '</div>';
     }).join('');
 
-    const recordRows = g.inRecords.map((r) => {
+    const recordRows = g.inRecords.map((r, ri) => {
       const rid = r.localId;
       const canRemove = g.inRecords.length > 1;
-      return '<div style="display:flex;gap:6px;align-items:flex-end;margin-bottom:5px;flex-wrap:wrap">'+
+      const autoRefId = 'line-G'+(idx+1)+'-R'+(ri+1);
+      return '<div style="border:1px solid var(--border);border-radius:4px;padding:6px 8px;margin-bottom:6px">'+
+        '<div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-bottom:4px">'+
         '<label style="font-size:10px;color:var(--fg2);flex:2;min-width:110px">Product2Id *<br>'+
         '<input class="try-inp" placeholder="01t..." style="width:100%;font-family:monospace;font-size:11px;padding:2px 5px" value="'+esc(r.product2Id)+'" '+
         'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').inRecords.find(x=>x.localId===\''+rid+'\').product2Id=this.value"></label>'+
@@ -3222,17 +3542,35 @@ function _renderSwapGroups(tabId){
         '<label style="font-size:10px;color:var(--fg2);width:60px">UnitPrice<br>'+
         '<input class="try-inp" type="number" placeholder="0" style="width:100%;font-size:11px;padding:2px 5px" value="'+esc(r.unitPrice)+'" '+
         'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').inRecords.find(x=>x.localId===\''+rid+'\').unitPrice=this.value"></label>'+
+        '<label style="font-size:10px;color:var(--fg2);width:50px">Qty<br>'+
+        '<input class="try-inp" type="number" placeholder="1" style="width:100%;font-size:11px;padding:2px 5px" value="'+esc(r.quantity||'1')+'" '+
+        'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').inRecords.find(x=>x.localId===\''+rid+'\').quantity=this.value"></label>'+
         '<label style="font-size:10px;color:var(--fg2);width:90px">StartDate<br>'+
         '<input class="try-inp" placeholder="2026-06-14" style="width:100%;font-size:11px;padding:2px 5px" value="'+esc(r.startDate)+'" '+
         'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').inRecords.find(x=>x.localId===\''+rid+'\').startDate=this.value"></label>'+
         (canRemove ? '<button class="btn" onclick="swapRemoveRecord(\''+tid+'\',\''+gid+'\',\''+rid+'\')" style="font-size:10px;padding:1px 6px;background:var(--bg3);color:#e74c3c;border:1px solid #e74c3c;height:24px;margin-bottom:1px">&#10005;</button>' : '<div style="width:28px"></div>')+
+        '</div>'+
+        '<label style="font-size:10px;color:var(--fg3)">referenceId&nbsp;'+
+        '<input class="try-inp" placeholder="'+autoRefId+'" style="width:160px;font-size:10px;padding:1px 5px;font-family:monospace" value="'+esc(r.refId||'')+'\" '+
+        'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').inRecords.find(x=>x.localId===\''+rid+'\').refId=this.value"></label>'+
         '</div>';
     }).join('');
 
+    const autoGroupRefId = 'SWAP-GROUP-'+(idx+1);
+    const autoGraphId = 'graph-GROUP-'+(idx+1);
+
     return '<div style="border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:10px">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
       '<span style="font-size:11px;font-weight:600;color:var(--fg2)">Group #'+(idx+1)+'</span>'+
       '<button class="btn" onclick="swapRemoveGroup(\''+tid+'\',\''+gid+'\')" style="font-size:11px;padding:1px 8px;background:var(--bg3);color:#e74c3c;border:1px solid #e74c3c">&#10005; Remove Group</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
+      '<label style="font-size:10px;color:var(--fg3)">referenceId&nbsp;'+
+      '<input class="try-inp" placeholder="'+autoGroupRefId+'" style="width:160px;font-size:10px;padding:1px 5px;font-family:monospace" value="'+esc(g.referenceId||'')+'\" '+
+      'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').referenceId=this.value"></label>'+
+      '<label style="font-size:10px;color:var(--fg3)">graphId&nbsp;'+
+      '<input class="try-inp" placeholder="'+autoGraphId+'" style="width:160px;font-size:10px;padding:1px 5px;font-family:monospace" value="'+esc(g.graphId||'')+'\" '+
+      'oninput="swapState[\''+tid+'\'].groups.find(x=>x.localId===\''+gid+'\').graphId=this.value"></label>'+
       '</div>'+
 
       '<div style="margin-bottom:10px">'+
@@ -3261,20 +3599,20 @@ function _buildSwapPayload(tabId){
   if(isoDate && !isoDate.endsWith('Z') && !isoDate.includes('+')) isoDate += ':00Z';
   const fallbackDate = isoDate.split('T')[0];
   const groups = s.groups.map((g, gi) => ({
-    referenceId: 'SWAP-GROUP-'+(gi+1),
+    referenceId: (g.referenceId||'').trim() || 'SWAP-GROUP-'+(gi+1),
     outGroup: {
       swapAssets: g.outAssets.map(a => ({ assetId: a.assetId.trim(), quantity: parseInt(a.quantity)||1 }))
     },
     inGroup: {
-      graphId: 'graph-GROUP-'+(gi+1),
+      graphId: (g.graphId||'').trim() || 'graph-GROUP-'+(gi+1),
       records: g.inRecords.map((r, ri) => ({
-        referenceId: 'line-G'+(gi+1)+'-R'+(ri+1),
+        referenceId: (r.refId||'').trim() || 'line-G'+(gi+1)+'-R'+(ri+1),
         record: {
           attributes: { type:'QuoteLineItem', method:'POST' },
           Product2Id:       r.product2Id.trim(),
           PricebookEntryId: r.pbeId.trim(),
           UnitPrice:        parseFloat(r.unitPrice)||0,
-          Quantity:         '1',
+          Quantity:         String(parseInt(r.quantity)||1),
           StartDate:        r.startDate||fallbackDate
         }
       }))
@@ -3285,13 +3623,55 @@ function _buildSwapPayload(tabId){
 
 function swapPreviewJson(tabId){
   const resp = document.getElementById('swap-resp-'+tabId);
-  if(resp) resp.innerHTML = '<pre>'+esc(JSON.stringify(_buildSwapPayload(tabId),null,2))+'</pre>';
+  if(!resp) return;
+  const payload = _getSwapPayload(tabId);
+  if(payload === null){ resp.innerHTML = '<pre style="color:#e74c3c">Invalid JSON in raw mode — fix before previewing.</pre>'; return; }
+  resp.innerHTML = '<pre>'+esc(JSON.stringify(payload,null,2))+'</pre>';
 }
 
 function executeSwap(tabId){
   const s = swapState[tabId];
   const orgAlias = document.getElementById('org-select').value;
   if(!orgAlias){ showToast('Select an org first.','error'); return; }
+
+  if(s.mode === 'raw'){
+    const rawTxt = document.getElementById('swap-raw-txt-'+tabId);
+    const errEl = document.getElementById('swap-raw-err-'+tabId);
+    if(!rawTxt) return;
+    let parsed;
+    try{ parsed = JSON.parse(rawTxt.value); } catch(e){ if(errEl){ errEl.textContent='Invalid JSON: '+e.message; errEl.style.display=''; } showToast('Fix JSON errors first.','error'); return; }
+    if(errEl) errEl.style.display='none';
+    const payload = parsed;
+    const reqId = ++reqCounter;
+    document.getElementById('swap-pill-'+tabId).innerHTML = '<span style="color:var(--fg3)">Executing…</span>';
+    pendingReqs[reqId] = (res) => {
+      let pill, html;
+      try{
+        const data = JSON.parse(res.body);
+        if(data.success === true){
+          pill = '<span style="color:#27ae60;font-weight:600">&#10003; Success — Quote: '+esc(data.salesTransactionId)+'</span>';
+          setQuickVar('QUOTE_ID', data.salesTransactionId, null);
+          html = '<pre>'+esc(JSON.stringify(data,null,2))+'</pre>';
+        } else {
+          const msg = (data.errors&&data.errors[0]) ? data.errors[0].message : JSON.stringify(data);
+          pill = '<span style="color:#e74c3c;font-weight:600">&#10007; Failed</span>';
+          html = '<pre style="color:#e74c3c">'+esc(msg)+'</pre>';
+        }
+      } catch(_){
+        pill = '<span style="color:#e74c3c">Parse error (status '+res.status+')</span>';
+        html = '<pre>'+esc(res.body)+'</pre>';
+      }
+      document.getElementById('swap-pill-'+tabId).innerHTML = pill;
+      document.getElementById('swap-resp-'+tabId).innerHTML = html;
+    };
+    vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+      method:'POST',
+      path:'/services/data/v67.0/revenue/transaction-management/assets/actions/swap',
+      headers:{}, body: applyVars(JSON.stringify(payload)),
+      apiVersion:'v67.0' });
+    return;
+  }
+
   if(!s.swapStartDate){ showToast('Enter a Swap Start Date.','error'); return; }
   if(!s.groups.length){ showToast('Add at least one swap group.','error'); return; }
   for(const g of s.groups){
@@ -3331,7 +3711,8 @@ function executeSwap(tabId){
 
 function copySwapAs(tabId, format){
   const s = swapState[tabId];
-  const payload = _buildSwapPayload(tabId);
+  const payload = _getSwapPayload(tabId);
+  if(payload === null){ showToast('Fix JSON errors first.','error'); return; }
   const bodyJson = JSON.stringify(payload, null, 2);
 
   if(format === 'curl'){
@@ -3436,6 +3817,133 @@ function copySwapAs(tabId, format){
     '}',
   ].join('\n');
   navigator.clipboard.writeText(apex).then(()=>_copyToast('Apex copied'));
+}
+
+function _getSwapPayload(tabId){
+  const s = swapState[tabId];
+  if(s.mode === 'raw'){
+    const rawTxt = document.getElementById('swap-raw-txt-'+tabId);
+    if(!rawTxt) return null;
+    try{ return JSON.parse(rawTxt.value); } catch(_){ return null; }
+  }
+  return _buildSwapPayload(tabId);
+}
+
+const _SWAP_RAW_EXAMPLE = JSON.stringify({
+  swapStartDate: '2026-06-14T00:00:00Z',
+  outputRecordType: 'Quote',
+  swapGroups: {
+    groups: [{
+      referenceId: 'SWAP-<assetId>',
+      outGroup: { swapAssets: [{ assetId: '<assetId>', quantity: 1 }] },
+      inGroup: {
+        graphId: 'graph-<assetId>',
+        records: [{
+          referenceId: 'line-<assetId>',
+          record: {
+            attributes: { type: 'QuoteLineItem', method: 'POST' },
+            Product2Id: '<replacementProductId>',
+            PricebookEntryId: '<pbeId>',
+            UnitPrice: 0,
+            Quantity: '1',
+            StartDate: '2026-06-14'
+          }
+        }]
+      }
+    }]
+  }
+}, null, 2);
+
+function swapToggleMode(tabId, mode){
+  const s = swapState[tabId];
+  if(!s) return;
+
+  const formEl = document.getElementById('swap-groups-'+tabId)?.closest('.try-sec');
+  const settingsEl = document.getElementById('swap-start-'+tabId)?.closest('.try-sec');
+  const rawEl = document.getElementById('swap-raw-'+tabId);
+  const rawTxt = document.getElementById('swap-raw-txt-'+tabId);
+  const rawErr = document.getElementById('swap-raw-err-'+tabId);
+  const btnForm = document.getElementById('swap-mode-form-'+tabId);
+  const btnRaw  = document.getElementById('swap-mode-raw-'+tabId);
+
+  if(mode === 'raw'){
+    // Sync form → raw
+    const current = JSON.stringify(_buildSwapPayload(tabId), null, 2);
+    const startVal = current === JSON.stringify(_buildSwapPayload(tabId), null, 2) ? current : _SWAP_RAW_EXAMPLE;
+    const textVal = s.rawJson || (s.groups.length ? JSON.stringify(_buildSwapPayload(tabId), null, 2) : _SWAP_RAW_EXAMPLE);
+    if(rawTxt){ rawTxt.value = textVal; s.rawJson = textVal; }
+    if(rawErr) rawErr.style.display = 'none';
+    // hide form sections, show raw
+    const allSections = document.getElementById('swap-inner-builder-'+tabId)?.querySelectorAll('.try-sec');
+    if(allSections) allSections.forEach(el => el.style.display = 'none');
+    if(rawEl) rawEl.style.display = '';
+    if(btnForm){ btnForm.style.background='var(--bg3)'; btnForm.style.color='var(--fg2)'; }
+    if(btnRaw){ btnRaw.style.background='#8e44ad'; btnRaw.style.color='#fff'; }
+    s.mode = 'raw';
+  } else {
+    // Sync raw → form (if valid)
+    if(s.rawJson){
+      try{
+        const parsed = JSON.parse(rawTxt ? rawTxt.value : s.rawJson);
+        _applySwapPayloadToState(tabId, parsed);
+      } catch(e){
+        if(rawErr){ rawErr.textContent='Cannot switch to form: '+e.message; rawErr.style.display=''; }
+        return;
+      }
+    }
+    // show form sections, hide raw
+    const allSections = document.getElementById('swap-inner-builder-'+tabId)?.querySelectorAll('.try-sec');
+    if(allSections) allSections.forEach(el => el.style.display = '');
+    if(rawEl) rawEl.style.display = 'none';
+    if(btnForm){ btnForm.style.background='#8e44ad'; btnForm.style.color='#fff'; }
+    if(btnRaw){ btnRaw.style.background='var(--bg3)'; btnRaw.style.color='var(--fg2)'; }
+    s.mode = 'form';
+    // Re-render groups to reflect any parsed state
+    _renderSwapGroups(tabId);
+    // Restore settings inputs
+    const startEl = document.getElementById('swap-start-'+tabId);
+    const outEl = document.getElementById('swap-output-'+tabId);
+    if(startEl) startEl.value = s.swapStartDate || '';
+    if(outEl) outEl.value = s.outputRecordType || 'Quote';
+  }
+}
+
+function _applySwapPayloadToState(tabId, parsed){
+  const s = swapState[tabId];
+  if(!s) return;
+  // Parse top-level fields
+  if(parsed.swapStartDate){
+    // datetime-local wants YYYY-MM-DDTHH:MM
+    s.swapStartDate = parsed.swapStartDate.replace(/Z$|(\+\d{2}:\d{2})$/, '').slice(0,16);
+  }
+  if(parsed.outputRecordType) s.outputRecordType = parsed.outputRecordType;
+  // Parse groups
+  const rawGroups = parsed?.swapGroups?.groups || [];
+  s.groups = rawGroups.map((rg, gi) => {
+    const rawAssets = rg?.outGroup?.swapAssets || [];
+    const rawRecords = rg?.inGroup?.records || [];
+    return {
+      localId: 'sg_'+gi,
+      referenceId: rg.referenceId||'',
+      graphId: rg?.inGroup?.graphId||'',
+      outAssets: rawAssets.map((a, ai) => ({ localId:'oa_'+ai, assetId: a.assetId||'', quantity: String(a.quantity||1) })),
+      inRecords: rawRecords.map((r, ri) => {
+        const rec = r.record || {};
+        return {
+          localId: 'ir_'+ri,
+          refId: r.referenceId||'',
+          product2Id: rec.Product2Id||'',
+          pbeId: rec.PricebookEntryId||'',
+          unitPrice: String(rec.UnitPrice??0),
+          quantity: String(rec.Quantity||'1'),
+          startDate: rec.StartDate||''
+        };
+      }),
+      assetCounter: rawAssets.length,
+      recordCounter: rawRecords.length
+    };
+  });
+  s.groupCounter = rawGroups.length;
 }
 
 function _buildSwapReference(){

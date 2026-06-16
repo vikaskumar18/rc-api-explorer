@@ -12,7 +12,8 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 - **147 endpoints** across 9 Revenue Cloud modules, with pre-filled request bodies and parameter docs
 - **Multi-step playbooks** — run chained API flows (CPQ quote, asset amendment, DRO orchestration, billing) with a single click
 - **Live org execution** — reads your `sf` CLI auth automatically, no copy-pasting tokens
-- **PST Builder** — visual tool to build Place Sales Transaction payloads (inserts, patches, deletes, bundles)
+- **PST Builder** — visual tool to build Place Sales Transaction payloads via the RC connect API; load an existing quote to see its full QLI/QLR/attribute tree, add/patch/delete line items and attributes, and execute directly
+- **Product Browser** — browse products, bundles, and pricebook entries from your org; launch a configurator flow and build PST payloads from the results
 - **Swap Builder** — multi-asset swap payload builder with cURL / Apex / JS copy
 - **Run History** — every execution saved locally; replay or inspect any previous run
 - **Environment variables** — define named variable sets per org and reuse across requests
@@ -225,13 +226,23 @@ Each step shows its status (pending / running / done / error) in a timeline. IDs
 
 ## PST Builder (Place Sales Transaction)
 
-Builds the `AsyncOperationTracker` payload for the Revenue Cloud PST API visually.
+Builds payloads for the RC connect API (`POST /connect/rev/sales-transaction/actions/place`) visually.
 
-1. Click **⚡ Open PST Builder** on any Transaction endpoint, or from the tab bar
-2. Choose the operation type: **Insert**, **Patch**, or **Delete**
-3. Fill in the fields for each line item
-4. Add child items (bundles) using the **+ Child** button
-5. Use **▶ Execute** to POST directly, or **Apex / cURL / JS** to copy the payload
+**Load an existing quote:**
+1. Enter a Quote ID and click **Load Quote**
+2. The full QLI/QLR/attribute tree renders — each line item shows its op badge (PATCH/DELETE/UNCHANGED), qty, billing frequency, and existing attributes with human-readable labels
+3. Attributes are fetched with `AttributeDefinition.Label` so you see "Term" instead of a raw ID
+
+**Make changes:**
+- **Patch** an existing QLI: change qty or billing frequency inline
+- **Delete** a QLI: click 🗑 — the node turns red and is included as DELETE in the payload
+- **Add a new QLI**: click **+ Flat Insert** or **+ Child QLI** on a parent; fill Product2Id, PBE, qty, and optionally add attributes
+- **Add attributes** to a new insert: click **+ Attr**, set the AttributeDefinitionId, choose Picklist or Text, and fill the value
+
+**Execute:**
+- Click **▶ Execute** to POST directly to your org
+- Or copy as **Apex / cURL / JS**
+- The **Payload Preview** tab shows the full graph (Section 1: complete structure, Section 2: delta changes only)
 
 ---
 

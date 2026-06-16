@@ -176,4 +176,8 @@ export class RunsTreeProvider implements vscode.TreeDataProvider<TreeNode> {
     deleteRun(this.workspaceRoot, runId);
     this.reload();
   }
+
+  getRunCount(): number {
+    return this.runs.length;
+  }
 }

@@ -271,6 +271,74 @@ export const PLAYBOOKS: Playbook[] = [
     ],
   },
 
+  // ─── Configurator Flow ───────────────────────────────────────────────────────
+  {
+    id:          'configurator-flow',
+    name:        'Configurator Flow',
+    description: 'Place Sales Transaction (Quote + Line Item) → Load Instance → Add Nodes → Update Nodes → Get Instance → Save Instance',
+    requiredPermissions: [
+      { name: 'Product Configurator',              apiName: 'IndustriesConfiguratorPlatformApi' },
+      { name: 'Product Configurator API User',     apiName: 'Product_Configurator_API_User' },
+      { name: 'Advanced Configurator Designer',    apiName: 'AdvancedConfiguratorDesigner' },
+    ],
+    notes: 'Configurator endpoints use v60.0. contextId is ephemeral — it is assigned by load-instance and only lives in memory until save-instance persists it back to the Quote. Config Rules Execute (cfg-4) requires a separate org feature (FUNCTIONALITY_NOT_ENABLED on most orgs). Composite API does not support /connect/cpq/ endpoints — steps must be sequential.',
+    mode:        'playbook',
+    execution:   'hybrid',
+    steps: [
+      {
+        id:          'create-quote',
+        endpointId:  'txn-9',
+        label:       'Step 1 — Place Sales Transaction (Quote + Line Item)',
+        initialBody: '{\n  "graph": {\n    "graphId": "createQuoteWithLine",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": { "type": "Quote", "method": "POST" },\n          "OpportunityId": "{{OPPORTUNITY_ID}}",\n          "Pricebook2Id": "{{PRICEBOOK_ID}}",\n          "Name": "Configurator POC"\n        }\n      },\n      {\n        "referenceId": "refQLI",\n        "record": {\n          "attributes": { "type": "QuoteLineItem", "method": "POST" },\n          "QuoteId": "@{refQuote.id}",\n          "PricebookEntryId": "{{PRICEBOOK_ENTRY_ID}}",\n          "Product2Id": "{{PRODUCT_ID}}",\n          "Quantity": 5,\n          "UnitPrice": 4.70\n        }\n      }\n    ]\n  }\n}',
+        extract: [
+          { from: '$.salesTransactionId', into: 'next.body.transactionId' },
+        ],
+      },
+      {
+        id:          'load-instance',
+        endpointId:  'cfg-5',
+        label:       'Step 2 — Load Instance → contextId',
+        initialBody: '{\n  "transactionId": "",\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateAmendRenewCancel": false,\n    "validateProductCatalog": true,\n    "returnProductCatalogData": false\n  },\n  "qualificationContext": {}\n}',
+        extract: [
+          { from: '$.contextId', into: 'next.body.contextId' },
+        ],
+      },
+      {
+        id:          'add-nodes',
+        endpointId:  'cfg-3',
+        label:       'Step 3 — Add Nodes',
+        initialBody: '{\n  "contextId": "",\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": false,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": false,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": false\n  },\n  "qualificationContext": {},\n  "addedNodes": [\n    {\n      "path": ["{{QUOTE_ID}}", "{{REF_NODE_ID}}"],\n      "addedObject": {\n        "id": "{{REF_NODE_ID}}",\n        "SalesTransactionItemSource": "{{REF_NODE_ID}}",\n        "SalesTransactionItemParent": "{{QUOTE_ID}}",\n        "PricebookEntry": "{{PRICEBOOK_ENTRY_ID}}",\n        "Product": "{{PRODUCT_ID}}",\n        "Quantity": 1,\n        "UnitPrice": 4.70,\n        "businessObjectType": "QuoteLineItem"\n      }\n    }\n  ]\n}',
+        extract: [
+          { from: '$.contextId', into: 'next.body.contextId' },
+        ],
+      },
+      {
+        id:          'update-nodes',
+        endpointId:  'cfg-8',
+        label:       'Step 4 — Update Nodes (Quantity)',
+        initialBody: '{\n  "contextId": "",\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": false,\n    "executeConfigurationRules": true\n  },\n  "qualificationContext": {},\n  "updatedNodes": [\n    {\n      "path": ["{{QUOTE_ID}}", "{{REF_NODE_ID}}"],\n      "updatedAttributes": { "Quantity": 10 }\n    }\n  ]\n}',
+        extract: [
+          { from: '$.contextId', into: 'next.body.contextId' },
+        ],
+      },
+      {
+        id:          'get-instance',
+        endpointId:  'cfg-10',
+        label:       'Step 5 — Get Instance (read final state)',
+        initialBody: '{\n  "contextId": ""\n}',
+        extract: [
+          { from: '$.contextId', into: 'next.body.contextId' },
+        ],
+      },
+      {
+        id:          'save-instance',
+        endpointId:  'cfg-9',
+        label:       'Step 6 — Save Instance (persist to Quote)',
+        initialBody: '{\n  "contextId": ""\n}',
+      },
+    ],
+  },
+
   // ─── Usage Summary Flow ───────────────────────────────────────────────────────
   {
     id:          'usage-summary-flow',

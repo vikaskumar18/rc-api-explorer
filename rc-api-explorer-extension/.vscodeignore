@@ -14,3 +14,19 @@ node_modules/@types/**
 node_modules/typescript/**
 node_modules/@vscode/vsce/**
 node_modules/esbuild/**
+
+# POC and test files
+bundle-configurator-poc.js
+bundle-configurator-proxy.js
+bundle-configurator.html
+test-configurator-flow.html
+test-swap-builder.html
+
+# API reference docs (large, not needed at runtime)
+docs/**
+
+# Workspace run data
+.rc-explorer/**
+
+# Build artefacts
+*.vsix

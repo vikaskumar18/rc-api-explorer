@@ -6,6 +6,11 @@ rc-api-explorer-extension/node_modules/
 rc-api-explorer-extension/dist/
 rc-api-explorer-extension/out/
 rc-api-explorer-extension/*.vsix
+rc-api-explorer-extension-postman-poc/node_modules/
+rc-api-explorer-extension-postman-poc/dist/
+rc-api-explorer-extension-postman-poc/out/
+rc-api-explorer-extension-postman-poc/*.vsix
+rc-api-explorer-extension-postman-poc/.rc-explorer/
 
 # Source maps
 **/*.map

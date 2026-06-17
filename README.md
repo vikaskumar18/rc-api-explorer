@@ -7,16 +7,30 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ---
 
+## What's New in v1.1.0
+
+- **Postman Import** — import any Postman Collection v2.1 from file, URL, or the built-in catalog
+- **☁ Salesforce Platform APIs** — 250+ requests available with one click
+- **★ Pin / Unpin** saved requests with a dedicated pinned section at the top
+- **📋 Clone** any saved request or RC API catalog endpoint
+- **Collection Runner** — run all requests in a category with a live progress modal
+- **Org auth fallback chain** — resolves 401 errors across all SF CLI versions
+- **Theme toggle** and **resizable sidebar**
+
+---
+
 ## Features
 
 - **147 endpoints** across 9 Revenue Cloud modules, with pre-filled request bodies and parameter docs
+- **Postman Collection Import** — one-click import from file, URL, or GitHub catalog
 - **Multi-step playbooks** — run chained API flows (CPQ quote, asset amendment, DRO orchestration, billing) with a single click
 - **Live org execution** — reads your `sf` CLI auth automatically, no copy-pasting tokens
 - **PST Builder** — visual tool to build Place Sales Transaction payloads (inserts, patches, deletes, bundles)
+- **Product Browser** — browse products, bundles, and pricebook entries; launch configurator flows
 - **Swap Builder** — multi-asset swap payload builder with cURL / Apex / JS copy
 - **Run History** — every execution saved locally; replay or inspect any previous run
 - **Environment variables** — define named variable sets per org and reuse across requests
-- **Custom requests** — save your own endpoints alongside the built-in ones
+- **Custom requests** — save, pin, clone, and categorize your own endpoints
 - **Custom playbooks** — build and persist your own multi-step API chains
 
 ---
@@ -30,15 +44,21 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ## Installation
 
-Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
+**Option A — VS Code Marketplace (recommended)**
 
-
+Search **"Revenue Cloud API Explorer"** in the Extensions panel, or:
 ```bash
-# From the VSIX file
-code --install-extension rc-api-explorer-1.0.0.vsix
+code --install-extension vikas-builds.rc-api-explorer
 ```
+Or open directly: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vikas-builds.rc-api-explorer)
 
-Or install via the VS Code Extensions panel → **Install from VSIX…**
+**Option B — VSIX file**
+
+Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
+```bash
+code --install-extension rc-api-explorer-1.1.0.vsix
+```
+Or via VS Code UI: Extensions panel → `...` menu → **Install from VSIX…**
 
 After installing, reload VS Code. The extension activates automatically on startup.
 
@@ -339,8 +359,8 @@ Environment variable sets are stored in VS Code's extension storage (persisted a
 ```bash
 cd rc-api-explorer-extension
 npm install
-npm run package        # builds + packages → rc-api-explorer-1.0.0.vsix
-code --install-extension rc-api-explorer-1.0.0.vsix
+npm run package        # builds + packages → rc-api-explorer-1.1.0.vsix
+code --install-extension rc-api-explorer-1.1.0.vsix
 ```
 
 For development with live rebuild:

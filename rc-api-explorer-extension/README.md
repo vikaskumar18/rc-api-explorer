@@ -7,9 +7,24 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ---
 
+## What's New in v1.1.0
+
+- **Postman Import** — import any Postman Collection v2.1 from a local file, a URL, or the built-in catalog
+- **☁ Salesforce Platform APIs** — 250+ requests (REST, Bulk, Composite, Connect, CPQ, Einstein, GraphQL, Loyalty) available with one click via the collection catalog
+- **Postman Environment Import** — import `.postman_environment.json` files to sync variables into the extension
+- **★ Pin / Unpin** — pin saved requests to a dedicated section at the top of the list
+- **📋 Clone** — duplicate any saved request or RC API catalog endpoint
+- **Collection Runner** — run all requests in a category with a visible progress modal
+- **Theme toggle** — switch between light and dark mode
+- **Resizable sidebar** — drag to adjust panel widths
+- **Auth fallback chain** — resolves 401 errors across all SF CLI versions automatically
+
+---
+
 ## Features
 
 - **147 endpoints** across 9 Revenue Cloud modules, with pre-filled request bodies and parameter docs
+- **Postman Collection Import** — one-click import from file, URL, or the built-in GitHub catalog
 - **Multi-step playbooks** — run chained API flows (CPQ quote, asset amendment, DRO orchestration, billing) with a single click
 - **Live org execution** — reads your `sf` CLI auth automatically, no copy-pasting tokens
 - **PST Builder** — visual tool to build Place Sales Transaction payloads via the RC connect API; load an existing quote to see its full QLI/QLR/attribute tree, add/patch/delete line items and attributes, and execute directly
@@ -17,7 +32,7 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 - **Swap Builder** — multi-asset swap payload builder with cURL / Apex / JS copy
 - **Run History** — every execution saved locally; replay or inspect any previous run
 - **Environment variables** — define named variable sets per org and reuse across requests
-- **Custom requests** — save your own endpoints alongside the built-in ones
+- **Custom requests** — save, pin, clone, and categorize your own endpoints alongside the built-in ones
 - **Custom playbooks** — build and persist your own multi-step API chains
 
 ---
@@ -44,7 +59,7 @@ Or open directly: [VS Code Marketplace](https://marketplace.visualstudio.com/ite
 Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
 
 ```bash
-code --install-extension rc-api-explorer-1.0.0.vsix
+code --install-extension rc-api-explorer-1.1.0.vsix
 ```
 
 Or via VS Code UI (no terminal needed):
@@ -52,7 +67,7 @@ Or via VS Code UI (no terminal needed):
 2. Go to the **Extensions** view (`Cmd+Shift+X` on Mac / `Ctrl+Shift+X` on Windows)
 3. Click the **`...`** menu (top-right of the Extensions panel)
 4. Select **Install from VSIX…**
-5. Browse to and select the downloaded `rc-api-explorer-1.0.0.vsix` file
+5. Browse to and select the downloaded `rc-api-explorer-1.1.0.vsix` file
 6. Click **Install**
 
 After installing, reload VS Code when prompted. The extension activates automatically on startup.
@@ -270,14 +285,50 @@ The Run History tree view in the VS Code sidebar (left panel) also shows recent 
 
 ---
 
+## Postman Collection Import
+
+Import any Postman Collection v2.1 into the Saved Requests panel.
+
+### One-click catalog
+1. Go to the **Saved Requests** rail (bookmark icon)
+2. Under **Collections**, click **☁ Salesforce Platform APIs** — 250+ requests load instantly
+3. More collections can be added to the catalog without updating the extension
+
+### From a local file
+1. Click **+ Import Collection** → **File** tab
+2. Select your `.postman_collection.json`
+3. Browse the folder tree and select which requests to import
+
+### From a URL
+1. Click **+ Import Collection** → **URL** tab
+2. Paste a direct link to a Postman Collection JSON
+3. Browse and import
+
+### Import Postman Environments
+1. Click **+ Import Collection** → **Environments** tab
+2. Select your `.postman_environment.json`
+3. Variables are merged into the extension's environment store
+
+---
+
 ## Custom Requests
 
 Save your own API calls alongside the built-in endpoints.
 
-1. Click **+ Custom Request** in the endpoints list
+1. Click **+ Custom Request** in the Saved Requests panel
 2. Enter a name, method, path, headers, and body
-3. Save — appears in the endpoint list under "Custom"
-4. Execute exactly like built-in endpoints
+3. Optionally assign a **category** (e.g. `My Org > Accounts`) to organise requests into folders
+4. Save — appears in the list under its category
+5. Execute exactly like built-in endpoints
+
+### Pin requests
+Click **☆** on any saved request to pin it — pinned requests appear in a dedicated **★ Pinned** section at the top.
+
+### Clone requests
+Hover over a saved request row and click **📋** to duplicate it.
+
+### Collection Runner
+Click **▶** on any category header to run all requests in that category in sequence, with a live progress modal showing status and duration per request.
 
 ---
 
@@ -364,8 +415,8 @@ Environment variable sets are stored in VS Code's extension storage (persisted a
 ```bash
 cd rc-api-explorer-extension
 npm install
-npm run package        # builds + packages → rc-api-explorer-1.0.0.vsix
-code --install-extension rc-api-explorer-1.0.0.vsix
+npm run package        # builds + packages → rc-api-explorer-1.1.0.vsix
+code --install-extension rc-api-explorer-1.1.0.vsix
 ```
 
 For development with live rebuild:

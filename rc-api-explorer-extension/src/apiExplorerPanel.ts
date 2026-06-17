@@ -577,7 +577,7 @@ export class ApiExplorerPanel {
         break;
       }
       case 'loadCollectionCatalog': {
-        const CATALOG_URL = 'https://raw.githubusercontent.com/vikaskumar18/rc-api-explorer/main/rc-api-explorer-extension/collections/catalog.json';
+        const CATALOG_URL = 'https://raw.githubusercontent.com/vikaskumar18/rc-api-explorer/refs/heads/main/rc-api-explorer-extension/collections/catalog.json';
         try {
           const https = require('https');
           const raw = await new Promise<string>((resolve, reject) => {

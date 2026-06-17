@@ -4,6 +4,6 @@
     "label": "Salesforce Platform APIs",
     "description": "250+ requests covering REST, Bulk, Composite, Connect, CPQ, Einstein, GraphQL, Loyalty, and more",
     "icon": "☁",
-    "url": "https://raw.githubusercontent.com/vikaskumar18/rc-api-explorer/main/rc-api-explorer-extension/collections/salesforce-platform-apis.postman_collection.json"
+    "url": "https://raw.githubusercontent.com/vikaskumar18/rc-api-explorer/refs/heads/main/rc-api-explorer-extension/collections/salesforce-platform-apis.postman_collection.json"
   }
 ]

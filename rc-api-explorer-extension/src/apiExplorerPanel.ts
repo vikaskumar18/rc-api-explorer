@@ -17,7 +17,7 @@ import {
   listEnvs, getActiveEnvName, getActiveEnv, createEnv, deleteEnv, setActiveEnv,
   setEnvVar, deleteEnvVar, updateEnvOrg, Environment,
 } from './lib/vars-store';
-import { listCustomRequests, saveCustomRequest, updateCustomRequest, deleteCustomRequest, importCustomRequests } from './lib/custom-store';
+import { listCustomRequests, saveCustomRequest, updateCustomRequest, deleteCustomRequest, deleteAllCustomRequests, deleteCustomRequestsByCategory, importCustomRequests, CustomRequest } from './lib/custom-store';
 import { listCustomPlaybooks, saveCustomPlaybook, deleteCustomPlaybook } from './lib/custom-playbooks-store';
 import { appendHistory, listHistory, clearHistory } from './lib/history-store';
 import * as os from 'os';
@@ -417,11 +417,22 @@ export class ApiExplorerPanel {
       case 'executeCustom': {
         const { requestId, orgAlias, method, path, headers, body, apiVersion } = msg;
         this.postMsg({ type: 'execStarted', requestId });
+        this.outputChannel.appendLine(`\n[executeCustom] org=${orgAlias} method=${method} path=${path} ver=${apiVersion}`);
         const ver = apiVersion || 'v67.0';
-        const fullPath = path.startsWith('/services/data/')
-          ? path.replace(/\/services\/data\/v[\d.]+\//, `/services/data/${ver}/`)
-          : `/services/data/${ver}${path}`;
+        let fullPath: string;
+        if (path.startsWith('/services/data/')) {
+          fullPath = path
+            .replace(/\/services\/data\/v+[\d.]+\//, `/services/data/${ver}/`)
+            .replace(/\/services\/data\/v:[^/]+\//, `/services/data/${ver}/`);
+        } else if (path.startsWith('/services/')) {
+          // Non-data paths (auth, oauth2, etc.) — use as-is, no version prefix
+          fullPath = path;
+        } else {
+          fullPath = `/services/data/${ver}${path}`;
+        }
+        this.outputChannel.appendLine(`[executeCustom] fullPath=${fullPath}`);
         const result = await callApi(orgAlias, method, fullPath, body || undefined, headers || undefined);
+        this.outputChannel.appendLine(`[executeCustom] HTTP ${result.status} (${result.durationMs}ms)`);
         appendHistory(this.workspaceRoot(), {
           timestamp: new Date().toISOString(), method, path: fullPath, orgAlias,
           status: result.status, durationMs: result.durationMs,
@@ -433,15 +444,26 @@ export class ApiExplorerPanel {
       }
 
       case 'saveCustomRequest': {
-        const { name, method, path, headers, body } = msg;
-        const saved = saveCustomRequest(this.workspaceRoot(), { name, method, path, headers: headers ?? {}, body: body ?? '' });
+        const { name, method, path, headers, body, category, description, queryParams, pathVariables } = msg;
+        const saved = saveCustomRequest(this.workspaceRoot(), {
+          name, method, path, headers: headers ?? {}, body: body ?? '',
+          ...(category !== undefined && { category }),
+          ...(description !== undefined && { description }),
+          ...(queryParams !== undefined && { queryParams }),
+          ...(pathVariables !== undefined && { pathVariables }),
+        });
         this.postMsg({ type: 'customRequestsUpdated', customRequests: listCustomRequests(this.workspaceRoot()), savedId: saved.id });
         break;
       }
 
       case 'updateCustomRequest': {
-        const { id, name, method, path, headers, body } = msg;
-        updateCustomRequest(this.workspaceRoot(), id, { name, method, path, headers: headers ?? {}, body: body ?? '' });
+        const { id, ...updates } = msg as { id: string; [k: string]: any };
+        const cleanUpdates: Partial<Omit<CustomRequest, 'id' | 'savedAt'>> = {};
+        const allowed = ['name','method','path','headers','body','category','description','queryParams','pathVariables','pinned'];
+        for (const k of allowed) {
+          if (k in updates) (cleanUpdates as any)[k] = updates[k];
+        }
+        updateCustomRequest(this.workspaceRoot(), id, cleanUpdates);
         this.postMsg({ type: 'customRequestsUpdated', customRequests: listCustomRequests(this.workspaceRoot()) });
         break;
       }
@@ -449,6 +471,19 @@ export class ApiExplorerPanel {
       case 'deleteCustomRequest': {
         const { id } = msg;
         deleteCustomRequest(this.workspaceRoot(), id);
+        this.postMsg({ type: 'customRequestsUpdated', customRequests: listCustomRequests(this.workspaceRoot()) });
+        break;
+      }
+
+      case 'deleteAllCustomRequests': {
+        deleteAllCustomRequests(this.workspaceRoot());
+        this.postMsg({ type: 'customRequestsUpdated', customRequests: [] });
+        break;
+      }
+
+      case 'deleteCustomRequestsByCategory': {
+        const { category } = msg as { category: string };
+        deleteCustomRequestsByCategory(this.workspaceRoot(), category);
         this.postMsg({ type: 'customRequestsUpdated', customRequests: listCustomRequests(this.workspaceRoot()) });
         break;
       }
@@ -537,42 +572,119 @@ export class ApiExplorerPanel {
         this.postMsg({ type: 'customPlaybooksList', playbooks: listCustomPlaybooks(this.workspaceRoot()) });
         break;
       }
-      case 'importCollection': {
+      case 'importPostmanBrowse': {
+        this.postMsg({ type: 'openImportModal' });
+        break;
+      }
+      case 'loadCollectionCatalog': {
+        const CATALOG_URL = 'https://raw.githubusercontent.com/vikaskumar18/rc-api-explorer/main/rc-api-explorer-extension-postman-poc/collections/catalog.json';
+        try {
+          const https = require('https');
+          const raw = await new Promise<string>((resolve, reject) => {
+            https.get(CATALOG_URL, (res: any) => {
+              let buf = ''; res.on('data', (c: any) => buf += c); res.on('end', () => resolve(buf)); res.on('error', reject);
+            }).on('error', reject);
+          });
+          const catalog = JSON.parse(raw);
+          this.postMsg({ type: 'collectionCatalogLoaded', catalog });
+        } catch (e: any) {
+          this.postMsg({ type: 'collectionCatalogError', message: e.message });
+        }
+        break;
+      }
+      case 'importCollectionFromUrl': {
+        const { url } = msg as { url: string };
+        // Open modal first so it exists before tree data arrives
+        this.postMsg({ type: 'openImportModal' });
+        try {
+          const https = require('https');
+          const raw = await new Promise<string>((resolve, reject) => {
+            https.get(url, (res: any) => {
+              let buf = ''; res.on('data', (c: any) => buf += c); res.on('end', () => resolve(buf)); res.on('error', reject);
+            }).on('error', reject);
+          });
+          const data = JSON.parse(raw);
+          const tree = buildPostmanTree(data.item ?? [], '');
+          this.postMsg({ type: 'postmanTree', tree });
+        } catch (e: any) {
+          this.postMsg({ type: 'postmanFetchError', message: e.message });
+        }
+        break;
+      }
+      case 'importPostmanFile': {
         const vscodeApi = require('vscode');
         const uris = await vscodeApi.window.showOpenDialog({
-          canSelectMany: false, filters: { 'JSON': ['json'] }, title: 'Import Collection',
+          canSelectMany: false, filters: { 'JSON': ['json'] }, title: 'Select Postman Collection',
         });
-        if (uris && uris[0]) {
-          try {
-            const raw = require('fs').readFileSync(uris[0].fsPath, 'utf8');
-            const data = JSON.parse(raw);
-            // Support RC collection format
-            if (Array.isArray(data.customRequests)) {
-              importCustomRequests(this.workspaceRoot(), data.customRequests);
-            }
-            // Support Postman Collection v2.1 format
-            if (Array.isArray(data.item)) {
-              const mapped = data.item
-                .filter((item: any) => item.request)
-                .map((item: any) => ({
-                  name:    item.name ?? 'Imported',
-                  method:  item.request.method ?? 'GET',
-                  path:    typeof item.request.url === 'string'
-                    ? new URL(item.request.url.replace('{{baseUrl}}', 'https://x')).pathname
-                    : (item.request.url?.path ?? []).join('/').replace(/^([^/])/, '/$1'),
-                  headers: Object.fromEntries(
-                    (item.request.header ?? []).map((h: any) => [h.key, h.value])
-                  ),
-                  body: item.request.body?.raw ?? '',
-                }));
-              importCustomRequests(this.workspaceRoot(), mapped);
-            }
-            this.postMsg({ type: 'customRequestsUpdated', customRequests: listCustomRequests(this.workspaceRoot()) });
-            vscodeApi.window.showInformationMessage('Collection imported successfully.');
-          } catch (e: any) {
-            vscodeApi.window.showErrorMessage('Import failed: ' + e.message);
-          }
+        if (!uris?.[0]) break;
+        try {
+          const raw = require('fs').readFileSync(uris[0].fsPath, 'utf8');
+          const data = JSON.parse(raw);
+          const tree = buildPostmanTree(data.item ?? [], '');
+          this.postMsg({ type: 'postmanTree', tree });
+        } catch (e: any) {
+          this.postMsg({ type: 'postmanFetchError', message: e.message });
         }
+        break;
+      }
+      case 'importPostmanUrl': {
+        const { url } = msg as { url: string };
+        try {
+          const https = require('https');
+          const http = require('http');
+          const lib = url.startsWith('https') ? https : http;
+          const raw = await new Promise<string>((resolve, reject) => {
+            lib.get(url, (res: any) => {
+              let buf = '';
+              res.on('data', (c: any) => buf += c);
+              res.on('end', () => resolve(buf));
+              res.on('error', reject);
+            }).on('error', reject);
+          });
+          const data = JSON.parse(raw);
+          const tree = buildPostmanTree(data.item ?? [], '');
+          this.postMsg({ type: 'postmanTree', tree });
+        } catch (e: any) {
+          this.postMsg({ type: 'postmanFetchError', message: e.message });
+        }
+        break;
+      }
+      case 'importPostmanSelected': {
+        const { requests } = msg as { requests: any[] };
+        importCustomRequests(this.workspaceRoot(), requests);
+        this.postMsg({ type: 'customRequestsUpdated', customRequests: listCustomRequests(this.workspaceRoot()) });
+        break;
+      }
+      case 'importPostmanEnvFile': {
+        const vscodeApi = require('vscode');
+        const uris = await vscodeApi.window.showOpenDialog({
+          canSelectMany: false, filters: { 'JSON': ['json'] }, title: 'Select Postman Environment File',
+        });
+        if (!uris?.[0]) break;
+        try {
+          const raw = require('fs').readFileSync(uris[0].fsPath, 'utf8');
+          const data = JSON.parse(raw);
+          // Support both postman_environment.json (values[]) and collection.variable[]
+          const values: any[] = data.values ?? data.variable ?? [];
+          const vars = values
+            .filter((v: any) => v.key || v.key === '')
+            .map((v: any) => ({ key: String(v.key ?? ''), value: String(v.value ?? '') }));
+          const name = data.name ?? require('path').basename(uris[0].fsPath, '.json').replace('.postman_environment','').replace(/_/g,' ');
+          this.postMsg({ type: 'postmanEnvLoaded', vars, name });
+        } catch (e: any) {
+          this.postMsg({ type: 'postmanFetchError', message: e.message });
+        }
+        break;
+      }
+      case 'importPostmanEnvVars': {
+        const { envName, vars } = msg as { envName: string; vars: Array<{ key: string; value: string }> };
+        createEnv(this.workspaceRoot(), envName, '');
+        for (const v of vars) {
+          if (v.key) setEnvVar(this.workspaceRoot(), envName, v.key, v.value);
+        }
+        const envs = listEnvs(this.workspaceRoot());
+        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: getActiveEnv(this.workspaceRoot())?.vars ?? {} });
+        this.postMsg({ type: 'toast', message: `Imported ${vars.length} variables into "${envName}"`, kind: 'success' });
         break;
       }
       default:
@@ -631,8 +743,11 @@ body{font-family:var(--vscode-font-family,-apple-system,BlinkMacSystemFont,'Sego
   z-index:100;pointer-events:none}
 
 /* SIDEBAR */
-#sidebar{width:280px;min-width:200px;background:var(--bg2);border-right:1px solid var(--border);
+#sidebar{width:280px;min-width:160px;max-width:520px;background:var(--bg2);border-right:none;
   display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#sidebar-resizer{width:5px;background:var(--border);cursor:col-resize;flex-shrink:0;
+  transition:background .12s;z-index:10}
+#sidebar-resizer:hover,#sidebar-resizer.dragging{background:var(--acc)}
 #sidebar-top{padding:10px 12px 8px;border-bottom:1px solid var(--border)}
 #sidebar-top h1{font-size:10px;font-weight:700;color:var(--acc);letter-spacing:.07em;
   text-transform:uppercase;margin-bottom:8px}
@@ -777,6 +892,17 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
 .resp-box{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:13px;
   font-family:monospace;font-size:11px;line-height:1.6;color:var(--fg);white-space:pre-wrap;
   word-break:break-all;min-height:56px;max-height:400px;overflow-y:auto;overflow-x:auto;resize:vertical}
+/* JSON tree viewer */
+.jt-key{color:var(--acc);cursor:pointer}.jt-key:hover{text-decoration:underline}
+.jt-str{color:#ce9178}.jt-num{color:#b5cea8}.jt-bool{color:#569cd6}.jt-null{color:#808080}
+.jt-toggle{cursor:pointer;user-select:none;font-size:9px;margin-right:3px;display:inline-block;width:10px}
+.jt-body{margin-left:14px;border-left:1px solid var(--border);padding-left:6px}
+.jt-bracket{color:var(--fg3)}.jt-punct{color:var(--fg3)}.jt-colon{color:var(--fg3)}
+.jt-row{margin:1px 0;white-space:nowrap}
+.resp-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.resp-toolbar input{flex:1;font-size:10px;padding:2px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--fg);outline:none}
+.resp-toolbar .rt-btn{font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--fg2);cursor:pointer}
+.resp-toolbar .rt-btn.active{background:var(--acc);color:#fff;border-color:var(--acc)}
 .status-pill{display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:7px}
 .s2xx{background:#0d3b2e;color:var(--green)}.s4xx{background:#3b2d0d;color:var(--yellow)}
 .s5xx{background:#3b0d0d;color:var(--red)}.serr{background:#3b0d0d;color:var(--red)}
@@ -784,6 +910,13 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
 .spin{display:inline-block;animation:spin .8s linear infinite;margin-right:4px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Pinned custom requests */
+.cr-pin-btn{background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:var(--fg3);line-height:1;opacity:0;transition:opacity .1s;flex-shrink:0}
+.cr-pin-btn.pinned{color:#f0c040;opacity:1}
+.cr-action-btn{background:none;border:none;cursor:pointer;font-size:11px;padding:0 3px;color:var(--fg3);line-height:1;opacity:0;transition:opacity .1s;flex-shrink:0}
+.cr-action-btn:hover{color:var(--fg)}
+/* show all action buttons when the row is hovered */
+div:hover>.cr-pin-btn, div:hover>.cr-action-btn{opacity:1}
 /* Status bar */
 #status-bar{height:22px;background:var(--bg2);border-top:1px solid var(--border);
   display:flex;align-items:center;padding:0 14px;font-size:10px;color:var(--fg3);
@@ -855,6 +988,7 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
       <span id="env-badge" onclick="switchRail('envs')" title="Active environment">&#8212;</span>
       <button class="icon-btn" onclick="refreshOrgs()" title="Refresh orgs">&#8635;</button>
       <button class="icon-btn" onclick="vscMsg({type:'openOutputChannel'})" title="Open log">Log</button>
+      <button id="theme-toggle-btn" class="icon-btn" onclick="toggleTheme()" title="Toggle dark/light theme" style="font-size:13px">&#127769;</button>
       <label style="display:flex;align-items:center;gap:4px;margin-left:auto;font-size:10px;color:var(--fg3)">
         API ver
         <input id="global-api-ver" class="try-ver" value="v66.0" title="Default API version for all endpoints (edit to override)" oninput="setGlobalVersion(this.value)" style="width:52px;font-family:monospace;font-size:11px;text-align:center">
@@ -893,13 +1027,28 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
       Saved Requests
       <div style="display:flex;gap:4px">
         <button class="icon-btn" onclick="vscMsg({type:'exportCollection'})" title="Export collection">&#11015;</button>
-        <button class="icon-btn" onclick="vscMsg({type:'importCollection'})" title="Import collection">&#11014;</button>
+        <button class="icon-btn" onclick="vscMsg({type:'importPostmanBrowse'})" title="Import Postman collection">&#11014;</button>
+        <button class="icon-btn" onclick="_confirmDeleteAllCustom()" title="Remove all saved requests" style="color:var(--red,#f44)">&#128465;</button>
       </div>
     </div>
     <div style="padding:0 12px 8px;display:flex;flex-direction:column;gap:4px">
       <button class="btn btn-pri" onclick="openNewRequestTab()" style="width:100%;font-size:11px">+ New Request</button>
       <button class="btn btn-sec" onclick="openPstBuilderTab()" style="width:100%;font-size:11px">&#9889; PST Builder</button>
       <button class="btn btn-sec" onclick="openSwapBuilderTab()" style="width:100%;font-size:11px;margin-top:4px">&#8646; Swap Builder</button>
+    </div>
+    <div id="collection-catalog-btns" style="padding:0 12px 6px;display:flex;flex-direction:column;gap:3px">
+      <div style="font-size:9px;font-weight:700;color:var(--fg3);text-transform:uppercase;letter-spacing:.08em;padding:2px 0 4px">&#127760; Collections</div>
+      <div id="catalog-btn-list" style="display:flex;flex-direction:column;gap:3px">
+        <span style="font-size:10px;color:var(--fg3)">Loading&#8230;</span>
+      </div>
+    </div>
+    <div style="padding:4px 12px 2px">
+      <input id="custom-search" type="text" placeholder="&#128269; Search saved requests&#8230;" oninput="renderCustomReqList()"
+        style="width:100%;padding:5px 9px;background:var(--bg3);border:1px solid var(--border);color:var(--fg);border-radius:4px;font-size:11px;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:4px;padding:3px 8px 4px">
+      <button class="icon-btn" onclick="collapseAllCustom()" style="font-size:10px;padding:1px 8px;flex:1">&#8854; Collapse All</button>
+      <button class="icon-btn" onclick="expandAllCustom()"   style="font-size:10px;padding:1px 8px;flex:1">&#8853; Expand All</button>
     </div>
     <div id="custom-req-list" style="padding:0 12px"></div>
   </div>
@@ -954,6 +1103,9 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
   </div>
 </div>
 
+<!-- SIDEBAR RESIZE HANDLE -->
+<div id="sidebar-resizer" title="Drag to resize sidebar"></div>
+
 <!-- MAIN AREA -->
 <div id="main-area">
   <!-- TAB BAR -->
@@ -1001,4 +1153,65 @@ pre{background:var(--bg2);border:1px solid var(--border);border-radius:6px;paddi
 </body>
 </html>`;
   }
+}
+
+interface PostmanFolder {
+  name:     string;
+  category: string;
+  requests: any[];
+  children: PostmanFolder[];
+}
+
+function buildPostmanTree(items: any[], parentCategory: string): PostmanFolder[] {
+  return items
+    .filter(item => Array.isArray(item.item))
+    .map(item => {
+      const cat = parentCategory ? `${parentCategory} > ${item.name}` : item.name;
+      return {
+        name:     item.name,
+        category: cat,
+        requests: item.item.filter((r: any) => r.request).map((r: any) => extractPostmanRequest(r, cat)),
+        children: buildPostmanTree(item.item, cat),
+      };
+    });
+}
+
+function extractPostmanRequest(item: any, category: string) {
+  const urlObj = item.request.url;
+  let rawPath = typeof urlObj === 'string'
+    ? urlObj.replace(/^https?:\/\/[^/]+/, '')
+    : '/' + (urlObj?.path ?? []).join('/');
+
+  // Keep version recognizable so executeCustom path regex matches.
+  // v? consumes the literal "v" prefix already in the Postman path segment so
+  // "v{{version}}" becomes "v67.0" instead of the broken "vv67.0".
+  rawPath = rawPath.replace(/v?\{\{[Vv]ersion\}\}/gi, 'v67.0');
+  // Replace remaining {{vars}} with named :paramName placeholders
+  rawPath = rawPath.replace(/\{\{([^}]+)\}\}/g, ':$1');
+
+  const queryParams = (typeof urlObj === 'object' ? (urlObj?.query ?? []) : [])
+    .map((q: any) => ({ key: q.key ?? '', value: q.value ?? '', description: q.description ?? '' }));
+
+  const pathVariables = (typeof urlObj === 'object' ? (urlObj?.variable ?? []) : [])
+    .map((v: any) => ({ key: v.key ?? '', description: v.description ?? '' }));
+
+  const descRaw = item.request.description;
+  const description = typeof descRaw === 'string' ? descRaw
+    : (descRaw?.content ?? '');
+
+  return {
+    name:          item.name ?? 'Imported',
+    method:        item.request.method ?? 'GET',
+    path:          rawPath || '/',
+    headers:       Object.fromEntries(
+      (item.request.header ?? [])
+        .filter((h: any) => h.key?.toLowerCase() !== 'authorization')
+        .map((h: any) => [h.key, h.value])
+    ),
+    body:          item.request.body?.raw ?? '',
+    category,
+    description,
+    queryParams,
+    pathVariables,
+  };
 }

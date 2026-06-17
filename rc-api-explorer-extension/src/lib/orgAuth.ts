@@ -1,6 +1,7 @@
 import { AuthInfo } from '@salesforce/core';
 import * as https from 'https';
 import * as http from 'http';
+import { execSync } from 'child_process';
 
 export interface OrgInfo {
   alias: string;
@@ -54,33 +55,59 @@ async function resolveAuthInfo(aliasOrUsername: string): Promise<{ authInfo: Aut
   }
 }
 
-// Reads stored token from disk — no network call, no refresh attempt.
+// Fallback chain to fetch a decrypted access token + instanceUrl.
+// Tries three methods in order; first one that returns a non-redacted token wins.
 async function fetchStoredToken(aliasOrUsername: string): Promise<OrgCredentials> {
-  const { authInfo, instanceUrl } = await resolveAuthInfo(aliasOrUsername);
-  const fields = authInfo.getFields(true);
-  const accessToken: string = (fields as any).accessToken ?? '';
-  const resolvedUrl: string = (fields as any).instanceUrl ?? instanceUrl;
-  if (!accessToken || accessToken.startsWith('[REDACTED]')) {
-    throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
-  }
-  return { instanceUrl: resolvedUrl, accessToken };
+  const target = aliasOrUsername;
+
+  // Method 1: sf org auth show-access-token (purpose-built, newest CLI)
+  try {
+    const out = execSync(
+      `sf org auth show-access-token --target-org ${JSON.stringify(target)} --json`,
+      { env: { ...process.env }, timeout: 15000 }
+    ).toString();
+    const parsed = JSON.parse(out);
+    const token: string = parsed?.result?.accessToken ?? '';
+    if (token && !token.startsWith('[REDACTED]')) {
+      // instanceUrl not in this command — get it from AuthInfo (no decryption needed there)
+      const auths = await AuthInfo.listAllAuthorizations();
+      const match = auths.find(a => a.aliases?.includes(target) || a.username === target);
+      const instanceUrl = match?.instanceUrl ?? '';
+      if (instanceUrl) { return { instanceUrl, accessToken: token }; }
+    }
+  } catch { /* fall through */ }
+
+  // Method 2: SF_TEMP_SHOW_SECRETS=true sf org display (recent CLI workaround)
+  try {
+    const out = execSync(
+      `sf org display --target-org ${JSON.stringify(target)} --json`,
+      { env: { ...process.env, SF_TEMP_SHOW_SECRETS: 'true' }, timeout: 15000 }
+    ).toString();
+    const result = JSON.parse(out)?.result ?? {};
+    const token: string = result.accessToken ?? '';
+    const instanceUrl: string = result.instanceUrl ?? '';
+    if (token && !token.startsWith('[REDACTED]') && instanceUrl) {
+      return { instanceUrl, accessToken: token };
+    }
+  } catch { /* fall through */ }
+
+  // Method 3: @salesforce/core AuthInfo.getFields (older CLI versions)
+  try {
+    const { authInfo, instanceUrl } = await resolveAuthInfo(target);
+    const fields = authInfo.getFields(true);
+    const token: string = (fields as any).accessToken ?? '';
+    const resolvedUrl: string = (fields as any).instanceUrl ?? instanceUrl;
+    if (token && !token.startsWith('[REDACTED]') && resolvedUrl) {
+      return { instanceUrl: resolvedUrl, accessToken: token };
+    }
+  } catch { /* fall through */ }
+
+  throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
 }
 
-// Called only after a real 401 — attempts OAuth refresh then returns fresh token.
+// On 401 — re-fetch from CLI (picks up any token the CLI may have auto-refreshed).
 async function refreshAndFetch(aliasOrUsername: string): Promise<OrgCredentials> {
-  const { authInfo, instanceUrl } = await resolveAuthInfo(aliasOrUsername);
-  try {
-    await authInfo.refreshAuth();
-  } catch {
-    throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
-  }
-  const fields = authInfo.getFields(true);
-  const accessToken: string = (fields as any).accessToken ?? '';
-  const resolvedUrl: string = (fields as any).instanceUrl ?? instanceUrl;
-  if (!accessToken || accessToken.startsWith('[REDACTED]')) {
-    throw new Error(`SESSION_EXPIRED:${aliasOrUsername}`);
-  }
-  return { instanceUrl: resolvedUrl, accessToken };
+  return fetchStoredToken(aliasOrUsername);
 }
 
 export async function getOrgCredentials(aliasOrUsername: string, forceRefresh = false): Promise<OrgCredentials> {

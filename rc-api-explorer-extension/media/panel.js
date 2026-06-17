@@ -82,6 +82,7 @@ window.addEventListener('message', e => {
     populateOrgs();
     render();
     renderCustomReqList();
+    _loadCollectionCatalog();
     renderPlaybookCards();
     renderRunHistory();
     renderEnvsPanel();
@@ -180,6 +181,22 @@ window.addEventListener('message', e => {
   } else if(m.type === 'runsRefreshed'){
     runs = m.runs || [];
     renderRunHistory();
+  } else if(m.type === 'openImportModal'){
+    showImportModal();
+  } else if(m.type === 'postmanTree'){
+    _pmLoadTree(m.tree);
+  } else if(m.type === 'postmanFetchError'){
+    const errEl=document.getElementById('pm-fetch-error');
+    if(errEl){ errEl.textContent='Error: '+m.message; errEl.style.display='block'; }
+  } else if(m.type === 'collectionCatalogLoaded'){
+    _renderCatalogBtns(m.catalog||[]);
+  } else if(m.type === 'collectionCatalogError'){
+    const el=document.getElementById('catalog-btn-list');
+    if(el) el.innerHTML='<span style="font-size:10px;color:var(--red)">Failed to load. </span><button class="icon-btn" style="font-size:10px;padding:1px 6px" onclick="_loadCollectionCatalog()">&#8635; Retry</button>';
+  } else if(m.type === 'postmanEnvLoaded'){
+    _pmEnvLoaded(m.vars||[], m.name||'');
+  } else if(m.type === 'toast'){
+    showToast(m.message, m.kind||'info');
   } else if(m.type === 'customRequestsUpdated'){
     customRequests = m.customRequests || [];
     renderCustomReqList();
@@ -210,6 +227,11 @@ function switchRail(panel){
   if(btn) btn.classList.add('on');
   const sb = document.getElementById('sb-'+panel);
   if(sb) sb.classList.add('on');
+  // Reload catalog if it failed or is still showing Loading
+  if(panel==='requests'){
+    const el=document.getElementById('catalog-btn-list');
+    if(el&&(el.innerHTML.includes('Loading')||el.innerHTML.includes('Failed'))) _loadCollectionCatalog();
+  }
 }
 
 // ── Orgs ──────────────────────────────────────────────────────────────────────
@@ -320,7 +342,17 @@ function epRow(ep, isPinned){
     '<span class="ep-name">'+esc(ep.name)+'</span></div>'+
     '<div class="ep-path">'+esc(ep.path)+'</div></div>'+
     '<button class="ep-pin'+(pinned?' pinned':'')+'" onclick="event.stopPropagation();togglePin(\''+ep.id+'\')" title="'+(pinned?'Unpin':'Pin')+'">'+(pinned?'★':'☆')+'</button>'+
+    '<button class="ep-pin" onclick="event.stopPropagation();cloneEpToCustom(\''+ep.id+'\')" title="Clone to Saved Requests">&#128203;</button>'+
     '</div>';
+}
+
+function cloneEpToCustom(epId){
+  const ep=endpoints.find(function(e){ return e.id===epId; });
+  if(!ep) return;
+  const method=ep.methods[0]||'GET';
+  vscMsg({type:'saveCustomRequest', name:ep.name, method:method, path:ep.path,
+    headers:{}, body:'', category:'RC API — '+ep.category, description:ep.desc||''});
+  showToast('Cloned to Saved Requests','info');
 }
 
 function toggleCategory(cat){
@@ -592,7 +624,7 @@ function buildTryIt(ep, tabId){
     '<input class="try-inp" id="try-path-'+tabId+'" value="'+esc(fullPath)+'" style="font-family:monospace;font-size:11px">'+
     '</div></div>'+
     '<div class="btn-row">'+
-    '<button class="btn btn-pri" id="exec-btn-'+tabId+'" onclick="execute(\''+tabId+'\')" title="Execute (Ctrl+Enter)">&#9654; Execute</button>'+
+    '<button class="btn btn-pri" id="exec-btn-'+tabId+'" onclick="execute(\''+tabId+'\')" title="Execute (⌘↵ / Ctrl+Enter)">&#9654; Execute <span style="font-size:9px;opacity:.6">⌘↵</span></button>'+
     '<button class="btn btn-sec" onclick="validateBody(\''+tabId+'\')">&#10003; Validate</button>'+
     '<div style="flex:1"></div>'+
     '<button class="btn btn-sec" onclick="setDiffBaseline(null,null,\''+tabId+'\')" title="Set response as diff baseline">&#9638; Baseline</button>'+
@@ -606,11 +638,13 @@ function buildTryIt(ep, tabId){
     bodySection+
     '<div id="try-validation-'+tabId+'" style="margin-bottom:8px"></div>'+
     '<div class="try-sec">'+
-    '<div class="try-lbl">Response'+
-    '<input id="resp-search-'+tabId+'" placeholder="Search response…" oninput="filterResp(\''+tabId+'\')"'+
-    ' style="float:right;font-size:10px;padding:2px 6px;width:150px;background:var(--bg2);border:1px solid var(--brd);border-radius:4px;color:var(--fg)">'+
-    '</div>'+
+    '<div class="try-lbl">Response</div>'+
     '<div id="try-status-pill-'+tabId+'" style="margin-bottom:8px"></div>'+
+    '<div class="resp-toolbar" id="try-resp-toolbar-'+tabId+'" style="display:none">'+
+      '<input placeholder="Search response…" oninput="respSearchTree(\''+tabId+'\',this.value)" style="flex:1;font-size:10px;padding:2px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--fg);outline:none">'+
+      '<button id="try-rtree-'+tabId+'" class="rt-btn active" onclick="switchRespMode(\''+tabId+'\',\'tree\',document.getElementById(\'try-rtree-'+tabId+'\'),document.getElementById(\'try-rraw-'+tabId+'\'))">Tree</button>'+
+      '<button id="try-rraw-'+tabId+'"  class="rt-btn" onclick="switchRespMode(\''+tabId+'\',\'raw\',document.getElementById(\'try-rtree-'+tabId+'\'),document.getElementById(\'try-rraw-'+tabId+'\'))">Raw</button>'+
+    '</div>'+
     '<div class="resp-box" id="try-resp-'+tabId+'" style="color:var(--fg3)">Response will appear here after execution.</div>'+
     '<div id="try-extract-'+tabId+'"></div></div>';
 }
@@ -642,17 +676,6 @@ function applyVersionChange(tabId){
   pathEl.value = pathEl.value.replace(/\/services\/data\/v[\d.]+\//, '/services/data/'+newVer+'/');
 }
 
-const _respCache = {};
-
-function filterResp(tabId){
-  const q = ((document.getElementById('resp-search-'+tabId)||{}).value||'').toLowerCase();
-  const box = document.getElementById('try-resp-'+tabId);
-  if(!box) return;
-  const raw = _respCache[tabId]||'';
-  if(!q){ box.textContent = raw; return; }
-  const lines = raw.split('\n').filter(l => l.toLowerCase().includes(q));
-  box.textContent = lines.length ? lines.join('\n') : '(no matches)';
-}
 
 function setQuickVar(name, value, tabId){
   // Update the textarea live with the new var value
@@ -713,38 +736,19 @@ function execute(tabId){
   const pill   = document.getElementById('try-status-pill-'+tabId);
   const extract= document.getElementById('try-extract-'+tabId);
 
-  btn.disabled = true; btn.textContent = 'Executing…';
+  btnExecuting(btn);
   resp.style.color='var(--fg3)'; resp.textContent='Waiting for response…';
   if(pill) pill.innerHTML='';
   if(extract) extract.innerHTML='';
 
   const requestId = ++reqCounter;
   pendingReqs[requestId] = (result)=>{
-    btn.disabled=false; btn.textContent='▶ Execute';
+    btnReady(btn, '▶ Execute');
     const st = result.status;
-    let cls='serr', label='Error';
-    if(st>=200&&st<300){ cls='s2xx'; label='HTTP '+st+' OK'; }
-    else if(st>=400&&st<500){ cls='s4xx'; label='HTTP '+st; }
-    else if(st>=500){ cls='s5xx'; label='HTTP '+st+' Server Error'; }
-    const dur = result.durationMs?' — '+result.durationMs+'ms':'';
-    let hint='';
-    if(st===401||st===0){
-      try{
-        const p=JSON.parse(result.body);
-        if(p.hint){ hint='<div style="margin-top:6px;font-size:11px;color:var(--yellow)">&#9888; '+esc(p.hint)+'</div>'; showToast('Session expired — '+p.hint.replace('Run: ',''),'error'); }
-        else if(st===401){ showToast('HTTP 401 — session may be expired. Try re-logging in.','error'); }
-      }catch(_){ if(st===401) showToast('HTTP 401 — session may be expired.','error'); }
-    }
-    if(pill) pill.innerHTML='<span class="status-pill '+cls+'">'+esc(label+dur)+'</span>'+hint;
-    let parsed=null;
-    try{
-      parsed=JSON.parse(result.body);
-      resp.style.color=st>=400?'var(--yellow)':'var(--fg)';
-      const pretty=JSON.stringify(parsed,null,2);
-      resp.textContent=pretty;
-      _respCache[tabId]=pretty;
-    }catch(_){ resp.style.color='var(--fg)'; resp.textContent=result.body; _respCache[tabId]=result.body; }
-    const _rcKeys=Object.keys(_respCache); if(_rcKeys.length>10) delete _respCache[_rcKeys[0]];
+    const hint = handle401(result);
+    setPill(pill, st, result.durationMs, hint);
+    const toolbar=document.getElementById('try-resp-toolbar-'+tabId);
+    setRespBox(resp, toolbar, result.body, st, tabId);
 
     // Enable diff button
     const diffBtn=document.getElementById('diff-btn-'+tabId);
@@ -754,6 +758,7 @@ function execute(tabId){
     updateStatusBar(method, path, st, result.durationMs);
 
     // Save to vars
+    let parsed=null; try{ parsed=JSON.parse(result.body); }catch(_){}
     if(parsed&&st>=200&&st<300&&extract){
       const ids=extractIds(parsed);
       if(ids.length){
@@ -1122,6 +1127,18 @@ function replayHistory(id){
       const pathEl=document.getElementById('try-path-'+t.id);
       if(pathEl&&entry.path) pathEl.value=entry.path;
     },80);
+  } else {
+    // Custom request replay — open a new-custom tab pre-filled with history entry
+    const tabId='tab-'+(++tabCounter);
+    tabs.push({id:tabId, type:'new-custom', label:'Replay'});
+    renderTabBar();
+    const panel=document.createElement('div');
+    panel.id='tp-'+tabId;
+    panel.className='tab-panel';
+    document.getElementById('detail').appendChild(panel);
+    const syntheticReq={name:'',method:entry.method||'GET',path:entry.path||'',headers:{},body:entry.requestBody||''};
+    _buildCustomPanel(panel,tabId,syntheticReq,true);
+    activateTab(tabId);
   }
 }
 
@@ -1177,18 +1194,339 @@ function _loadSwapFromJson(jsonStr){
 // ── Custom Requests ───────────────────────────────────────────────────────────
 const METHODS=['GET','POST','PUT','PATCH','DELETE'];
 
+const collapsedCustomCats=new Set(JSON.parse(localStorage.getItem('rc-custom-collapsed')||'[]'));
+const collapsedCustomSubs=new Set(JSON.parse(localStorage.getItem('rc-custom-subs-collapsed')||'[]'));
+
+function toggleCustomCat(key){
+  collapsedCustomCats.has(key)?collapsedCustomCats.delete(key):collapsedCustomCats.add(key);
+  localStorage.setItem('rc-custom-collapsed',JSON.stringify([...collapsedCustomCats]));
+  renderCustomReqList();
+}
+function toggleCustomSub(key){
+  collapsedCustomSubs.has(key)?collapsedCustomSubs.delete(key):collapsedCustomSubs.add(key);
+  localStorage.setItem('rc-custom-subs-collapsed',JSON.stringify([...collapsedCustomSubs]));
+  renderCustomReqList();
+}
+function collapseAllCustom(){
+  Object.keys(_buildCustomTree(customRequests)).forEach(k=>collapsedCustomCats.add(k));
+  localStorage.setItem('rc-custom-collapsed',JSON.stringify([...collapsedCustomCats]));
+  renderCustomReqList();
+}
+function expandAllCustom(){
+  collapsedCustomCats.clear();
+  localStorage.setItem('rc-custom-collapsed','[]');
+  renderCustomReqList();
+}
+
+function _buildCustomTree(reqs){
+  const tree={};
+  for(const r of reqs){
+    const parts=(r.category||'Custom').split(' > ');
+    const l1=parts[0], l2=parts[1];
+    if(!tree[l1]) tree[l1]={requests:[],subs:{}};
+    if(l2){ if(!tree[l1].subs[l2]) tree[l1].subs[l2]={requests:[]}; tree[l1].subs[l2].requests.push(r); }
+    else tree[l1].requests.push(r);
+  }
+  return tree;
+}
+
+function customReqRow(r, showCat){
+  const mc=r.method||'GET';
+  const pinned=r.pinned?true:false;
+  return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;cursor:pointer'+(pinned?';border-left:2px solid #f0c040':'')+'" onclick="openCustomRequest(\''+esc(r.id)+'\')">'+
+    '<span class="mb '+mc+'" style="font-size:9px;padding:1px 4px;min-width:34px">'+esc(r.method)+'</span>'+
+    '<span style="flex:1;min-width:0">'+
+      '<div style="font-size:11px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name)+'</div>'+
+      (showCat&&r.category?'<div style="font-size:9px;color:var(--fg3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.category)+'</div>':'')+
+    '</span>'+
+    '<button class="cr-pin-btn'+(pinned?' pinned':'')+'" onclick="event.stopPropagation();togglePinCustomReq(\''+esc(r.id)+'\')" title="'+(pinned?'Unpin':'Pin')+'">'+(pinned?'★':'☆')+'</button>'+
+    '<button class="cr-action-btn" onclick="event.stopPropagation();duplicateCustomReq(\''+esc(r.id)+'\')" title="Duplicate request">&#128203;</button>'+
+    '<button class="cr-action-btn" style="color:var(--red)" onclick="event.stopPropagation();deleteCustomReq(\''+esc(r.id)+'\')">&#10005;</button>'+
+    '</div>';
+}
+
+function togglePinCustomReq(id){
+  const r=customRequests.find(function(x){ return x.id===id; });
+  if(!r) return;
+  vscMsg({type:'updateCustomRequest', id, pinned:!r.pinned});
+}
+
 function renderCustomReqList(){
   const el=document.getElementById('custom-req-list');
   if(!el) return;
   if(!customRequests.length){ el.innerHTML='<div style="color:var(--fg3);font-size:11px;padding:6px 0">No saved requests yet.</div>'; return; }
-  el.innerHTML=customRequests.map(r=>{
-    const mc=r.method||'GET';
-    return '<div style="display:flex;align-items:center;gap:4px;margin-bottom:5px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;cursor:pointer" onclick="openCustomRequest(\''+esc(r.id)+'\')">'+
-      '<span class="mb '+mc+'" style="font-size:9px;padding:1px 4px;min-width:34px">'+esc(r.method)+'</span>'+
-      '<span style="flex:1;font-size:11px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.name)+'</span>'+
-      '<button class="icon-btn" style="padding:1px 5px;font-size:10px;color:var(--red);flex-shrink:0" onclick="event.stopPropagation();deleteCustomReq(\''+esc(r.id)+'\')">&#10005;</button>'+
+
+  const q=((document.getElementById('custom-search')||{}).value||'').toLowerCase().trim();
+
+  if(q){
+    const matches=customRequests.filter(r=>
+      r.name.toLowerCase().includes(q)||r.method.toLowerCase().includes(q)||r.path.toLowerCase().includes(q)
+    );
+    el.innerHTML=matches.length
+      ? matches.map(r=>customReqRow(r,true)).join('')
+      : '<div style="color:var(--fg3);font-size:11px;padding:6px 4px">No matches.</div>';
+    return;
+  }
+
+  // Dedicated ★ Pinned section at the top
+  const pinnedReqs=customRequests.filter(function(r){ return r.pinned; });
+  const unpinnedReqs=customRequests.filter(function(r){ return !r.pinned; });
+  let html='';
+  if(pinnedReqs.length){
+    html+='<div class="sec-hdr" style="cursor:default;font-size:11px"><span style="color:#f0c040">★ Pinned</span><span style="margin-left:auto;color:var(--fg3);font-weight:400">'+pinnedReqs.length+'</span></div>';
+    pinnedReqs.forEach(function(r){ html+=customReqRow(r,true); });
+  }
+
+  const tree=_buildCustomTree(unpinnedReqs);
+  for(const [l1,node] of Object.entries(tree)){
+    const total=node.requests.length+Object.values(node.subs).reduce(function(s,sub){ return s+sub.requests.length; },0);
+    const collapsed=collapsedCustomCats.has(l1);
+    html+='<div class="sec-hdr'+(collapsed?' collapsed':'')+'" onclick="toggleCustomCat(\''+esc(l1)+'\')" style="font-size:11px">'+
+      '<span class="chevron">&#9660;</span><span>'+esc(l1)+'</span>'+
+      '<span style="margin-left:auto;color:var(--fg3);font-weight:400">'+total+'</span>'+
+      '<button class="icon-btn" style="font-size:10px;padding:0 3px;margin-left:4px;flex-shrink:0;color:var(--acc)" onclick="event.stopPropagation();runCollection(\''+esc(l1)+'\')" title="Run all in '+esc(l1)+'">&#9654;</button>'+
+      '<button class="icon-btn" style="font-size:10px;color:var(--red,#f44);padding:0 3px;flex-shrink:0" onclick="event.stopPropagation();_confirmDeleteCat(\''+esc(l1)+'\')" title="Remove all in '+esc(l1)+'">&#128465;</button>'+
       '</div>';
+    if(!collapsed){
+      for(const [l2,sub] of Object.entries(node.subs)){
+        const subKey=l1+' > '+l2;
+        const subCol=collapsedCustomSubs.has(subKey);
+        html+='<div style="padding-left:12px">'+
+          '<div class="sec-hdr'+(subCol?' collapsed':'')+'" onclick="toggleCustomSub(\''+esc(subKey)+'\')" style="font-size:10px;padding:3px 8px">'+
+          '<span class="chevron">&#9660;</span><span>'+esc(l2)+'</span>'+
+          '<span style="margin-left:auto;color:var(--fg3);font-weight:400">'+sub.requests.length+'</span></div>';
+        if(!subCol) sub.requests.forEach(function(r){ html+='<div style="padding-left:12px">'+customReqRow(r)+'</div>'; });
+        html+='</div>';
+      }
+      node.requests.forEach(function(r){ html+=customReqRow(r); });
+    }
+  }
+  el.innerHTML=html;
+}
+
+function _showConfirmModal(message, onConfirm){
+  let ov=document.getElementById('confirm-modal-overlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='confirm-modal-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(ov); }
+  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px 24px;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+    <div style="font-size:13px;color:var(--fg);margin-bottom:18px;line-height:1.5">${message}</div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="document.getElementById('confirm-modal-overlay').remove()">Cancel</button>
+      <button class="btn" style="background:var(--red,#c0392b);border-color:var(--red,#c0392b);color:#fff" id="confirm-modal-ok">Delete</button>
+    </div>
+  </div>`;
+  document.getElementById('confirm-modal-ok').onclick=()=>{ ov.remove(); onConfirm(); };
+}
+
+function _confirmDeleteAllCustom(){
+  if(!customRequests.length){ showToast('No saved requests to remove.','error'); return; }
+  _showConfirmModal('Remove <strong>ALL '+customRequests.length+' saved requests</strong>? This cannot be undone.',
+    ()=>vscMsg({type:'deleteAllCustomRequests'}));
+}
+function _confirmDeleteCat(cat){
+  const count=customRequests.filter(r=>{ const c=r.category||'Custom'; return c===cat||c.startsWith(cat+' > '); }).length;
+  if(count===0){ showToast('No requests in "'+cat+'".','error'); return; }
+  _showConfirmModal('Remove all <strong>'+count+' request'+(count===1?'':'s')+' in &ldquo;'+esc(cat)+'&rdquo;</strong>? This cannot be undone.',
+    ()=>vscMsg({type:'deleteCustomRequestsByCategory',category:cat}));
+}
+
+// ── Postman Import Modal ──────────────────────────────────────────────────────
+let _pmTree=[], _pmFlat=[], _pmChecked=new Set(), _pmFolderOpen=new Set();
+
+function _pmFlatten(folders){
+  const out=[];
+  for(const f of folders){ out.push(...f.requests); if(f.children?.length) out.push(..._pmFlatten(f.children)); }
+  return out;
+}
+
+function _loadCollectionCatalog(){
+  vscMsg({type:'loadCollectionCatalog'});
+}
+function _importCollectionFromCatalog(url, label){
+  // Open modal immediately with loading state, then fetch
+  showImportModal();
+  const section=document.getElementById('pm-tree-section');
+  if(section){ section.style.display='block'; section.innerHTML='<div style="padding:20px;text-align:center;color:var(--fg3);font-size:12px">&#8987; Loading '+esc(label)+'…</div>'; }
+  vscMsg({type:'importCollectionFromUrl', url});
+}
+function _renderCatalogBtns(catalog){
+  const el=document.getElementById('catalog-btn-list');
+  if(!el) return;
+  if(!catalog||!catalog.length){ el.innerHTML='<span style="font-size:10px;color:var(--fg3)">No collections found.</span>'; return; }
+  el.innerHTML=catalog.map(function(c){
+    return '<button class="btn btn-sec" style="width:100%;font-size:11px;text-align:left" title="'+esc(c.description||'')+'" onclick="_importCollectionFromCatalog(\''+esc(c.url)+'\',\''+esc(c.label)+'\')">'+
+      (c.icon||'📦')+' '+esc(c.label)+'</button>';
   }).join('');
+}
+
+function showImportModal(){
+  let ov=document.getElementById('pm-modal-overlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='pm-modal-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(ov); }
+  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;width:540px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <span style="flex:1;font-weight:600;font-size:13px">Import Collection</span>
+      <button class="icon-btn" onclick="_closePmModal()">&#10005;</button>
+    </div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;gap:6px">
+      <button id="pm-tab-file" class="btn" style="background:var(--accent);color:#fff" onclick="_pmSwitchTab('file')">From File</button>
+      <button id="pm-tab-url"  class="btn" onclick="_pmSwitchTab('url')">From URL</button>
+      <button id="pm-tab-env"  class="btn" onclick="_pmSwitchTab('env')" title="Import Postman environment variables">&#127759; Environments</button>
+    </div>
+    <div id="pm-tab-file-body" style="padding:10px 16px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px;color:var(--fg3)">Select a Postman Collection JSON:</span>
+      <button class="btn" onclick="vscMsg({type:'importPostmanFile'})">Browse&hellip;</button>
+    </div>
+    <div id="pm-tab-url-body" style="padding:10px 16px;display:none;align-items:center;gap:8px">
+      <input id="pm-url-input" type="text" placeholder="https://raw.githubusercontent.com/..." style="flex:1;font-size:11px;background:var(--bg3);border:1px solid var(--border);color:var(--fg);border-radius:4px;padding:4px 8px">
+      <button class="btn" onclick="_pmFetchUrl()">Fetch</button>
+    </div>
+    <div id="pm-tab-env-body" style="padding:10px 16px;display:none;flex-direction:column;gap:8px">
+      <div style="font-size:11px;color:var(--fg3)">Import a Postman environment file (<code>*.postman_environment.json</code>) or collection variables. Creates a new environment with all variables.</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="pm-env-name" class="try-inp" placeholder="Environment name (auto from file)" style="flex:1;font-size:11px">
+        <button class="btn" onclick="vscMsg({type:'importPostmanEnvFile'})">Browse&hellip;</button>
+      </div>
+      <div id="pm-env-preview" style="display:none;font-size:10px;color:var(--fg3);max-height:120px;overflow-y:auto;font-family:monospace;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 8px"></div>
+      <button id="pm-env-import-btn" class="btn btn-pri" style="display:none;align-self:flex-start" onclick="_pmEnvImport()">Import Variables</button>
+    </div>
+    <div id="pm-fetch-error" style="color:var(--red);font-size:11px;padding:0 16px 6px;display:none"></div>
+    <div id="pm-tree-section" style="display:none;flex:1;overflow-y:auto;padding:6px 12px"></div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;justify-content:flex-end">
+      <span id="pm-sel-all-wrap" style="display:none;margin-right:auto;gap:4px;display:none">
+        <button class="icon-btn" onclick="_pmSelectAll(true)" style="font-size:10px">Select All</button>
+        <button class="icon-btn" onclick="_pmSelectAll(false)" style="font-size:10px">None</button>
+      </span>
+      <button class="btn" onclick="_closePmModal()">Cancel</button>
+      <button id="pm-import-btn" class="btn" style="display:none;background:var(--accent);color:#fff" onclick="_pmImport()">Import Selected (<span id="pm-count">0</span>)</button>
+    </div>
+  </div>`;
+}
+
+function _pmLoadTree(tree){
+  _pmTree=tree; _pmFlat=_pmFlatten(tree);
+  _pmChecked=new Set(_pmFlat.map((_,i)=>i));
+  _pmFolderOpen=new Set(tree.map(f=>f.category));
+  const section=document.getElementById('pm-tree-section');
+  if(section){ section.style.display='block'; section.innerHTML=_renderPmTree(_pmTree,0); }
+  const btn=document.getElementById('pm-import-btn');
+  if(btn) btn.style.display='inline-block';
+  const wrap=document.getElementById('pm-sel-all-wrap');
+  if(wrap) wrap.style.display='inline-flex';
+  const cnt=document.getElementById('pm-count');
+  if(cnt) cnt.textContent=_pmFlat.length;
+}
+
+function _pmSwitchTab(tab){
+  document.getElementById('pm-tab-file-body').style.display=tab==='file'?'flex':'none';
+  document.getElementById('pm-tab-url-body').style.display=tab==='url'?'flex':'none';
+  const envBody=document.getElementById('pm-tab-env-body');
+  if(envBody) envBody.style.display=tab==='env'?'flex':'none';
+  ['file','url','env'].forEach(function(t){
+    const btn=document.getElementById('pm-tab-'+t);
+    if(!btn) return;
+    btn.style.background=t===tab?'var(--accent)':'';
+    btn.style.color=t===tab?'#fff':'';
+  });
+  // hide tree section and import button when switching to env tab
+  if(tab==='env'){
+    const ts=document.getElementById('pm-tree-section'); if(ts) ts.style.display='none';
+    const ib=document.getElementById('pm-import-btn'); if(ib) ib.style.display='none';
+    const sw=document.getElementById('pm-sel-all-wrap'); if(sw) sw.style.display='none';
+  }
+}
+
+// Postman env vars loaded from backend
+let _pmEnvVars=[];
+function _pmEnvLoaded(vars, name){
+  _pmEnvVars=vars;
+  const nameEl=document.getElementById('pm-env-name');
+  if(nameEl&&!nameEl.value) nameEl.value=name||'Imported Env';
+  const prev=document.getElementById('pm-env-preview');
+  if(prev){
+    prev.style.display='block';
+    prev.textContent=vars.map(function(v){ return v.key+'  =  '+(v.value||'(empty)'); }).join('\n');
+  }
+  const btn=document.getElementById('pm-env-import-btn');
+  if(btn) btn.style.display='inline-block';
+}
+function _pmEnvImport(){
+  const name=((document.getElementById('pm-env-name')||{}).value||'').trim()||'Imported Env';
+  if(!_pmEnvVars.length){ showToast('No variables to import','error'); return; }
+  vscMsg({type:'importPostmanEnvVars', envName:name, vars:_pmEnvVars});
+  _closePmModal();
+}
+
+function _pmFetchUrl(){
+  const url=(document.getElementById('pm-url-input')||{}).value?.trim();
+  if(!url) return;
+  const errEl=document.getElementById('pm-fetch-error');
+  if(errEl) errEl.style.display='none';
+  vscMsg({type:'importPostmanUrl',url});
+}
+
+function _renderPmTree(folders,depth){
+  let html='';
+  for(const f of folders){
+    const open=_pmFolderOpen.has(f.category);
+    const total=f.requests.length+(f.children?_pmFlatten(f.children).length:0);
+    const allChk=_pmFolderAllChecked(f);
+    html+=`<div style="padding-left:${depth*14}px">
+      <div style="display:flex;align-items:center;gap:4px;padding:3px 0;cursor:default">
+        <input type="checkbox" ${allChk?'checked':''} onchange="_pmToggleFolder('${esc(f.category)}',this.checked)" onclick="event.stopPropagation()" style="cursor:pointer">
+        <span onclick="_pmToggleFolderOpen('${esc(f.category)}')" style="flex:1;font-size:11px;font-weight:500;cursor:pointer">${esc(f.name)}</span>
+        <span style="font-size:10px;color:var(--fg3)">${total}</span>
+        <span style="font-size:10px;cursor:pointer" onclick="_pmToggleFolderOpen('${esc(f.category)}')">${open?'&#9660;':'&#9654;'}</span>
+      </div>`;
+    if(open){
+      if(f.children?.length) html+=_renderPmTree(f.children,depth+1);
+      f.requests.forEach(r=>{
+        const idx=_pmFlat.indexOf(r);
+        html+=`<div style="padding-left:${(depth+1)*14}px;display:flex;align-items:center;gap:4px;padding-top:2px;padding-bottom:2px">
+          <input type="checkbox" ${_pmChecked.has(idx)?'checked':''} onchange="_pmToggleReq(${idx},this.checked)" style="cursor:pointer">
+          <span class="mb ${esc(r.method)}" style="font-size:9px;padding:1px 3px;min-width:30px">${esc(r.method)}</span>
+          <span style="font-size:10px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${esc(r.name)}</span>
+        </div>`;
+      });
+    }
+    html+='</div>';
+  }
+  return html;
+}
+
+function _pmFolderAllChecked(folder){
+  const all=_pmFlatten([folder]);
+  return all.length>0 && all.every(r=>_pmChecked.has(_pmFlat.indexOf(r)));
+}
+function _pmToggleFolderOpen(cat){
+  if(_pmFolderOpen.has(cat)) _pmFolderOpen.delete(cat); else _pmFolderOpen.add(cat);
+  const s=document.getElementById('pm-tree-section');
+  if(s) s.innerHTML=_renderPmTree(_pmTree,0);
+}
+function _pmToggleFolder(cat,checked){
+  function find(fs){ for(const f of fs){ if(f.category===cat) return f; const r=find(f.children||[]); if(r) return r; } }
+  const folder=find(_pmTree);
+  if(!folder) return;
+  _pmFlatten([folder]).forEach(r=>{ const i=_pmFlat.indexOf(r); checked?_pmChecked.add(i):_pmChecked.delete(i); });
+  const cnt=document.getElementById('pm-count'); if(cnt) cnt.textContent=_pmChecked.size;
+  const s=document.getElementById('pm-tree-section'); if(s) s.innerHTML=_renderPmTree(_pmTree,0);
+}
+function _pmToggleReq(idx,checked){
+  checked?_pmChecked.add(idx):_pmChecked.delete(idx);
+  const cnt=document.getElementById('pm-count'); if(cnt) cnt.textContent=_pmChecked.size;
+}
+function _pmSelectAll(checked){
+  _pmFlat.forEach((_,i)=>checked?_pmChecked.add(i):_pmChecked.delete(i));
+  const cnt=document.getElementById('pm-count'); if(cnt) cnt.textContent=_pmChecked.size;
+  const s=document.getElementById('pm-tree-section'); if(s) s.innerHTML=_renderPmTree(_pmTree,0);
+}
+function _closePmModal(){ const el=document.getElementById('pm-modal-overlay'); if(el) el.remove(); }
+function _pmImport(){
+  const requests=[..._pmChecked].sort((a,b)=>a-b).map(i=>_pmFlat[i]);
+  vscMsg({type:'importPostmanSelected',requests});
+  _closePmModal();
 }
 
 function openNewRequestTab(){
@@ -1222,6 +1560,16 @@ function openCustomRequest(id){
 }
 
 function deleteCustomReq(id){ vscMsg({type:'deleteCustomRequest', id}); }
+function duplicateCustomReq(id){
+  const r=customRequests.find(function(x){ return x.id===id; });
+  if(!r) return;
+  const copy=Object.assign({},r);
+  delete copy.id; delete copy.savedAt; delete copy.pinned;
+  copy.name=r.name+' (copy)';
+  vscMsg({type:'saveCustomRequest', name:copy.name, method:copy.method, path:copy.path,
+    headers:copy.headers||{}, body:copy.body||'', category:copy.category,
+    description:copy.description, queryParams:copy.queryParams, pathVariables:copy.pathVariables});
+}
 
 function _buildCustomPanel(panel, tabId, req, isNew){
   const headerRows=Object.entries(req.headers||{}).map(([k,v])=>
@@ -1232,8 +1580,40 @@ function _buildCustomPanel(panel, tabId, req, isNew){
     '</div>'
   ).join('');
 
+  const pathVars = req.pathVariables||[];
+  const queryParams = req.queryParams||[];
+
+  const descHtml = req.description
+    ? '<div class="try-sec"><div class="try-lbl">Description</div>'+
+      '<div style="font-size:11px;color:var(--fg3);line-height:1.5;white-space:pre-wrap;max-height:80px;overflow-y:auto">'+esc(req.description)+'</div></div>'
+    : '';
+
+  const pathVarHtml = pathVars.length
+    ? '<div class="try-sec"><div class="try-lbl">Path Variables</div>'+
+      pathVars.map(v=>
+        '<div style="display:flex;gap:6px;margin-bottom:4px;align-items:center">'+
+        '<span style="font-size:10px;font-family:monospace;color:var(--acc,#4ec9b0);min-width:90px;flex-shrink:0">:'+esc(v.key)+'</span>'+
+        '<input class="try-inp cr-pathvar-'+tabId+'" data-key="'+esc(v.key)+'" placeholder="value" style="flex:1;font-size:11px">'+
+        (v.description?'<span style="font-size:9px;color:var(--fg3);flex-shrink:0;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(v.description)+'">'+esc(v.description)+'</span>':'')+
+        '</div>'
+      ).join('')+
+      '</div>'
+    : '';
+
+  const queryParamHtml = queryParams.length
+    ? '<div class="try-sec"><div class="try-lbl">Query Parameters</div>'+
+      queryParams.map((q,i)=>
+        '<div style="display:flex;gap:4px;margin-bottom:4px">'+
+        '<input class="try-inp" value="'+esc(q.key)+'" placeholder="key" style="flex:1;font-family:monospace;font-size:11px" id="cr-qpk-'+tabId+'-'+i+'">'+
+        '<input class="try-inp" value="'+esc(q.value)+'" placeholder="value" style="flex:2;font-size:11px" id="cr-qpv-'+tabId+'-'+i+'">'+
+        '</div>'
+      ).join('')+
+      '</div>'
+    : '';
+
   panel.innerHTML=
     '<div class="d-title" style="margin-bottom:14px">'+(isNew?'New Request':esc(req.name))+'</div>'+
+    descHtml+
     '<div class="try-sec"><div class="try-lbl">Name</div>'+
     '<input class="try-inp" id="cr-name-'+tabId+'" placeholder="My Request" value="'+esc(req.name||'')+'" style="width:100%"></div>'+
     '<div class="try-sec"><div class="try-lbl">Method &amp; Path</div>'+
@@ -1244,6 +1624,8 @@ function _buildCustomPanel(panel, tabId, req, isNew){
     '<input class="try-ver" id="cr-ver-'+tabId+'" value="'+(req.apiVersion||DEFAULT_API_VERSION||'v66.0')+'" title="API version (editable)" style="width:54px;font-family:monospace;font-size:11px;text-align:center;flex-shrink:0">'+
     '<input class="try-inp" id="cr-path-'+tabId+'" value="'+esc(req.path||'')+'" placeholder="/connect/pcm/catalogs" style="font-family:monospace;font-size:11px">'+
     '</div></div>'+
+    pathVarHtml+
+    queryParamHtml+
     '<div class="try-sec"><div class="try-lbl" style="display:flex;justify-content:space-between;align-items:center">Extra Headers <button class="icon-btn" style="padding:1px 7px;font-size:10px" onclick="_addCrHeader(\''+tabId+'\')">+ Add</button></div>'+
     '<div id="cr-headers-'+tabId+'">'+headerRows+'</div>'+
     '<div style="font-size:10px;color:var(--fg3);margin-top:4px">Authorization is added automatically. Add extra headers like <code>X-Custom</code> here.</div></div>'+
@@ -1255,14 +1637,21 @@ function _buildCustomPanel(panel, tabId, req, isNew){
     '<button class="btn btn-sec" onclick="clearCrBody(\''+tabId+'\')">Clear</button>'+
     '</div></div>'+
     '<div class="btn-row" style="margin-bottom:16px">'+
-    '<button class="btn btn-pri" id="cr-exec-btn-'+tabId+'" onclick="executeCustomReq(\''+tabId+'\')">&#9654; Execute</button>'+
+    '<button class="btn btn-pri" id="cr-exec-btn-'+tabId+'" onclick="executeCustomReq(\''+tabId+'\')" title="Execute (⌘↵ / Ctrl+Enter)">&#9654; Execute <span style="font-size:9px;opacity:.6">⌘↵</span></button>'+
     '<button class="btn btn-sec" onclick="saveCustomReq(\''+tabId+'\','+(isNew?'true':'false')+')">&#128190; '+(isNew?'Save':'Update')+'</button>'+
     (!isNew?'<button class="btn btn-sec" onclick="saveCustomReqAsNew(\''+tabId+'\')">Save as New</button>':'')+
+    (!isNew?'<button class="btn btn-sec" title="Duplicate" onclick="_duplicateCrTab(\''+tabId+'\')">&#128203; Duplicate</button>':'')+
     '<div style="flex:1"></div>'+
     '<button class="btn btn-sec" onclick="copyCrCurl(\''+tabId+'\')">cURL</button>'+
     '<button class="btn btn-sec" onclick="copyCrApex(\''+tabId+'\')">Apex</button>'+
     '</div>'+
     '<div id="cr-status-pill-'+tabId+'" style="margin-bottom:8px"></div>'+
+    '<div id="cr-extract-'+tabId+'"></div>'+
+    '<div class="resp-toolbar" id="cr-resp-toolbar-'+tabId+'" style="display:none">'+
+      '<input placeholder="Search response…" oninput="respSearchTree(\''+tabId+'\',this.value)" style="flex:1;font-size:10px;padding:2px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--fg);outline:none">'+
+      '<button id="cr-rtree-'+tabId+'" class="rt-btn active" onclick="switchRespMode(\''+tabId+'\',\'tree\',document.getElementById(\'cr-rtree-'+tabId+'\'),document.getElementById(\'cr-rraw-'+tabId+'\'))">Tree</button>'+
+      '<button id="cr-rraw-'+tabId+'"  class="rt-btn" onclick="switchRespMode(\''+tabId+'\',\'raw\',document.getElementById(\'cr-rtree-'+tabId+'\'),document.getElementById(\'cr-rraw-'+tabId+'\'))">Raw</button>'+
+    '</div>'+
     '<div class="resp-box" id="cr-resp-'+tabId+'" style="color:var(--fg3)">Response will appear here after execution.</div>';
 
   // Auto-prettify on paste
@@ -1313,6 +1702,15 @@ function saveCustomReqAsNew(tabId){
   const f=_readCrForm(tabId);
   vscMsg({type:'saveCustomRequest', ...f});
 }
+function _duplicateCrTab(tabId){
+  const tab=tabs.find(function(t){ return t.id===tabId; });
+  const origReq=tab&&tab.reqId?customRequests.find(function(r){ return r.id===tab.reqId; }):null;
+  if(origReq){ duplicateCustomReq(origReq.id); } else {
+    const f=_readCrForm(tabId);
+    f.name=f.name+' (copy)';
+    vscMsg({type:'saveCustomRequest', ...f});
+  }
+}
 function fmtCrBody(tabId){ const el=document.getElementById('cr-body-'+tabId); if(!el) return; try{ el.value=JSON.stringify(JSON.parse(el.value),null,2); }catch(e){ showToast(_jsonErrMsg(el.value,e),'error'); } }
 function clearCrBody(tabId){ const el=document.getElementById('cr-body-'+tabId); if(el) el.value=''; }
 
@@ -1321,34 +1719,49 @@ function executeCustomReq(tabId){
   if(!orgAlias){ showToast('Select an org first.','error'); return; }
   const f=_readCrForm(tabId);
   const body=applyVars(f.body);
-  const path=applyVars(f.path);
+  let path=applyVars(f.path);
+
+  // Substitute :paramName path variables from path-var inputs
+  document.querySelectorAll('.cr-pathvar-'+tabId).forEach(inp=>{
+    const key=inp.dataset.key; const val=inp.value.trim();
+    if(key&&val) path=path.replace(':'+key, encodeURIComponent(val));
+  });
+
+  // Append query params from editable rows
+  const qpKeys=document.querySelectorAll('[id^="cr-qpk-'+tabId+'-"]');
+  const qpVals=document.querySelectorAll('[id^="cr-qpv-'+tabId+'-"]');
+  const qps=[];
+  qpKeys.forEach((k,i)=>{ if(k.value.trim()) qps.push(k.value.trim()+'='+encodeURIComponent(qpVals[i]?.value||'')); });
+  if(qps.length) path+=(path.includes('?')?'&':'?')+qps.join('&');
   const btn=document.getElementById('cr-exec-btn-'+tabId);
   const resp=document.getElementById('cr-resp-'+tabId);
   const pill=document.getElementById('cr-status-pill-'+tabId);
-  btn.disabled=true; btn.textContent='Executing…';
+  const crExtract=document.getElementById('cr-extract-'+tabId);
+  btnExecuting(btn);
   resp.style.color='var(--fg3)'; resp.textContent='Waiting for response…';
   if(pill) pill.innerHTML='';
+  if(crExtract) crExtract.innerHTML='';
   const requestId=++reqCounter;
   pendingReqs[requestId]=(result)=>{
-    btn.disabled=false; btn.textContent='▶ Execute';
+    btnReady(btn, '▶ Execute ⌘↵');
     const st=result.status;
-    let cls='serr',label='Error';
-    if(st>=200&&st<300){ cls='s2xx'; label='HTTP '+st+' OK'; }
-    else if(st>=400&&st<500){ cls='s4xx'; label='HTTP '+st; }
-    else if(st>=500){ cls='s5xx'; label='HTTP '+st+' Server Error'; }
-    const dur=result.durationMs?' — '+result.durationMs+'ms':'';
-    let crHint='';
-    if(st===401||st===0){
-      try{
-        const p=JSON.parse(result.body);
-        if(p.hint){ crHint='<div style="margin-top:6px;font-size:11px;color:var(--yellow)">&#9888; '+esc(p.hint)+'</div>'; showToast('Session expired — '+p.hint.replace('Run: ',''),'error'); }
-        else if(st===401){ showToast('HTTP 401 — session may be expired. Try re-logging in.','error'); }
-      }catch(_){ if(st===401) showToast('HTTP 401 — session may be expired.','error'); }
-    }
-    if(pill) pill.innerHTML='<span class="status-pill '+cls+'">'+esc(label+dur)+'</span>'+crHint;
-    try{ resp.style.color=st>=400?'var(--yellow)':'var(--fg)'; resp.textContent=JSON.stringify(JSON.parse(result.body),null,2); }
-    catch(_){ resp.style.color='var(--fg)'; resp.textContent=result.body; }
+    setPill(pill, st, result.durationMs, handle401(result));
+    const crToolbar=document.getElementById('cr-resp-toolbar-'+tabId);
+    setRespBox(resp, crToolbar, result.body, st, tabId);
     updateStatusBar(f.method, path, st, result.durationMs);
+    // Auto-extract IDs banner (same as catalog)
+    let crParsed=null; try{ crParsed=JSON.parse(result.body); }catch(_){}
+    if(crParsed&&st>=200&&st<300&&crExtract){
+      const ids=extractIds(crParsed);
+      if(ids.length){
+        crExtract.innerHTML='<div style="margin-top:8px;font-size:11px;font-weight:600;color:var(--fg2);margin-bottom:4px">&#128190; Save to Variables</div>'+
+          ids.map(function(e){ return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
+            '<span style="font-family:monospace;font-size:10px;color:var(--acc);min-width:140px;flex-shrink:0">{{'+esc(suggestVarName(e.key,e.value))+'}}</span>'+
+            '<span style="font-size:11px;color:var(--fg2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(e.value)+'</span>'+
+            '<button class="btn btn-sec" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="saveResponseVar(\''+esc(suggestVarName(e.key,e.value))+'\',\''+esc(e.value)+'\')">Save</button>'+
+            '</div>'; }).join('');
+      }
+    }
   };
   const crVerEl = document.getElementById('cr-ver-'+tabId);
   const crApiVersion = (crVerEl && crVerEl.value.trim()) || 'v67.0';
@@ -5060,6 +5473,386 @@ function _obApplyConfiguration(stateKey){
 // ── Utils ─────────────────────────────────────────────────────────────────────
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escTA(s){ return String(s||'').replace(/<\/textarea/gi,'&lt;/textarea'); }
+
+// ── Shared UI helpers (reused across catalog, custom, PST, Swap, Order) ───────
+
+/** Build status pill HTML from an HTTP status code + duration. */
+function statusPillHtml(status, durationMs){
+  let cls='serr', label='Error';
+  if(status>=200&&status<300){ cls='s2xx'; label='HTTP '+status+' OK'; }
+  else if(status>=400&&status<500){ cls='s4xx'; label='HTTP '+status; }
+  else if(status>=500){ cls='s5xx'; label='HTTP '+status+' Server Error'; }
+  const dur=durationMs?' — '+durationMs+'ms':'';
+  return {cls, html:'<span class="status-pill '+cls+'">'+esc(label+dur)+'</span>'};
+}
+
+/** Handle 401/0 responses: show toast, return extra hint HTML string. */
+function handle401(result){
+  const st=result.status;
+  if(st!==401&&st!==0) return '';
+  try{
+    const p=JSON.parse(result.body);
+    if(p.hint){
+      showToast('Session expired — '+p.hint.replace('Run: ',''),'error');
+      return '<div style="margin-top:6px;font-size:11px;color:var(--yellow)">&#9888; '+esc(p.hint)+'</div>';
+    }
+  }catch(_){}
+  showToast('HTTP 401 — session may be expired. Try re-logging in.','error');
+  return '';
+}
+
+/** Disable a button and show "Executing…" text. Returns original label for restore. */
+function btnExecuting(btn){
+  if(!btn) return '';
+  const prev=btn.textContent; btn.disabled=true; btn.textContent='Executing…'; return prev;
+}
+
+/** Re-enable a button and restore its label. */
+function btnReady(btn, label){ if(btn){ btn.disabled=false; if(label) btn.textContent=label; } }
+
+/** Set a status pill element's innerHTML. */
+function setPill(pillEl, status, durationMs, extraHtml){
+  if(!pillEl) return;
+  pillEl.innerHTML=statusPillHtml(status, durationMs).html+(extraHtml||'');
+}
+
+// ── JSON Tree Renderer ────────────────────────────────────────────────────────
+let _jtCounter = 0;
+function renderJsonTree(val, depth){
+  depth = depth||0;
+  if(val===null) return '<span class="jt-null">null</span>';
+  if(typeof val==='boolean') return '<span class="jt-bool">'+val+'</span>';
+  if(typeof val==='number') return '<span class="jt-num">'+val+'</span>';
+  if(typeof val==='string') return '<span class="jt-str">"'+esc(val)+'"</span>';
+  if(Array.isArray(val)){
+    if(!val.length) return '<span class="jt-bracket">[]</span>';
+    const id='jt'+(++_jtCounter);
+    const startOpen = depth < 2;
+    return '<span class="jt-toggle" onclick="jtToggle(\''+id+'\')">'+(startOpen?'▾':'▸')+'</span>'
+      +'<span class="jt-bracket">[</span>'
+      +'<div id="'+id+'" class="jt-body" style="display:'+(startOpen?'block':'none')+'">'
+        +val.map(function(v,i){ return '<div class="jt-row">'+renderJsonTree(v,depth+1)+(i<val.length-1?'<span class="jt-punct">,</span>':'')+'</div>'; }).join('')
+      +'</div>'
+      +'<span class="jt-bracket">]</span>';
+  }
+  const keys=Object.keys(val);
+  if(!keys.length) return '<span class="jt-bracket">{}</span>';
+  const id='jt'+(++_jtCounter);
+  const startOpen = depth < 2;
+  return '<span class="jt-toggle" onclick="jtToggle(\''+id+'\')">'+(startOpen?'▾':'▸')+'</span>'
+    +'<span class="jt-bracket">{</span>'
+    +'<div id="'+id+'" class="jt-body" style="display:'+(startOpen?'block':'none')+'">'
+      +keys.map(function(k,i){
+        return '<div class="jt-row">'
+          +'<span class="jt-key" onclick="jtCopyVal(this)" title="Click to copy value">'+esc(k)+'</span>'
+          +'<span class="jt-colon">: </span>'
+          +renderJsonTree(val[k],depth+1)
+          +(i<keys.length-1?'<span class="jt-punct">,</span>':'')
+          +'</div>';
+      }).join('')
+    +'</div>'
+    +'<span class="jt-bracket">}</span>';
+}
+function jtToggle(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  const tog=el.previousElementSibling;
+  if(tog&&tog.classList.contains('jt-toggle')) tog.textContent=open?'▸':'▾';
+}
+function jtCopyVal(keyEl){
+  const row=keyEl.parentElement;
+  const valEl=row.querySelector('.jt-str,.jt-num,.jt-bool,.jt-null');
+  const txt=valEl?valEl.textContent.replace(/^"|"$/g,''):keyEl.textContent;
+  navigator.clipboard.writeText(txt).then(function(){ showToast('Copied: '+keyEl.textContent,'info'); });
+}
+
+// Render response: tree view or raw toggle
+const _respRaw = {};  // tabId → raw string
+const _respMode = {}; // tabId → 'tree' | 'raw'
+const RESP_NODE_LIMIT = 2000;
+function _countNodes(val, depth){
+  if(!val||typeof val!=='object') return 1;
+  if(depth>8) return 1;
+  let n=1;
+  const keys=Array.isArray(val)?val:Object.values(val);
+  for(const v of keys){ n+=_countNodes(v,depth+1); if(n>RESP_NODE_LIMIT+1) break; }
+  return n;
+}
+function setRespBox(boxEl, toolbarEl, body, status, tabId){
+  _respRaw[tabId] = body;
+  let parsed = null;
+  try{ parsed = JSON.parse(body); }catch(_){}
+  if(!parsed || typeof parsed !== 'object'){
+    boxEl.style.color = status>=400?'var(--yellow)':'var(--fg)';
+    boxEl.textContent = body;
+    if(toolbarEl) toolbarEl.style.display='none';
+    return;
+  }
+  // Large response guard: if > RESP_NODE_LIMIT nodes, show truncated with "Show full" button
+  const nodeCount = _countNodes(parsed, 0);
+  if(nodeCount > RESP_NODE_LIMIT){
+    _respMode[tabId]='raw';
+    if(toolbarEl) toolbarEl.style.display='flex';
+    boxEl.style.whiteSpace='pre-wrap';
+    boxEl.style.color = status>=400?'var(--yellow)':'var(--fg)';
+    const preview = body.length>8000?body.slice(0,8000)+'…\n[truncated]':body;
+    const sizeKb = Math.round(body.length/1024);
+    boxEl.innerHTML='<div style="background:rgba(250,180,0,0.12);border:1px solid #f0c040;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:10px;color:#f0c040">'+
+      '&#9888; Large response (~'+sizeKb+'KB, '+nodeCount+'+ nodes). Showing raw text. '+
+      '<button class="btn btn-sec" style="font-size:10px;padding:2px 8px;margin-left:6px" onclick="'+
+        '_respMode[\''+tabId+'\']=\'tree\';'+
+        '_applyRespMode(document.getElementById(\'try-resp-'+tabId+'\')||document.getElementById(\'cr-resp-'+tabId+'\'),'+
+        'JSON.parse(_respRaw[\''+tabId+'\']),_respRaw[\''+tabId+'\'],'+status+',\'tree\')'+
+      '">Show Tree (may be slow)</button></div>'+
+      '<span style="white-space:pre-wrap">'+esc(preview)+'</span>';
+    return;
+  }
+  if(toolbarEl) toolbarEl.style.display='flex';
+  const mode = _respMode[tabId]||'tree';
+  _applyRespMode(boxEl, parsed, body, status, mode);
+}
+function _applyRespMode(boxEl, parsed, raw, status, mode){
+  if(mode==='tree'){
+    boxEl.style.color = status>=400?'var(--yellow)':'var(--fg)';
+    boxEl.style.whiteSpace = 'normal';
+    boxEl.innerHTML = renderJsonTree(parsed, 0);
+  } else {
+    boxEl.style.color = status>=400?'var(--yellow)':'var(--fg)';
+    boxEl.style.whiteSpace = 'pre-wrap';
+    boxEl.textContent = typeof raw==='string'?raw:JSON.stringify(parsed,null,2);
+  }
+}
+function switchRespMode(tabId, mode, btnTree, btnRaw){
+  _respMode[tabId]=mode;
+  const raw=_respRaw[tabId]||'';
+  let parsed=null; try{ parsed=JSON.parse(raw); }catch(_){}
+  const boxEl=document.getElementById('try-resp-'+tabId)||document.getElementById('cr-resp-'+tabId);
+  if(boxEl&&parsed) _applyRespMode(boxEl, parsed, raw, 0, mode);
+  if(btnTree) btnTree.classList.toggle('active', mode==='tree');
+  if(btnRaw)  btnRaw.classList.toggle('active', mode==='raw');
+}
+function respSearchTree(tabId, q){
+  const box=document.getElementById('try-resp-'+tabId)||document.getElementById('cr-resp-'+tabId);
+  if(!box) return;
+  if(!q){ setRespBox(box, null, _respRaw[tabId]||'', 0, tabId); return; }
+  // In raw mode, filter lines; in tree mode, highlight text
+  const mode=_respMode[tabId]||'tree';
+  if(mode==='raw'){
+    const lines=(_respRaw[tabId]||'').split('\n').filter(function(l){ return l.toLowerCase().includes(q.toLowerCase()); });
+    box.style.whiteSpace='pre-wrap'; box.textContent=lines.length?lines.join('\n'):'(no matches)';
+  } else {
+    // Walk text nodes and wrap matches in <mark>
+    _highlightTreeSearch(box, q);
+  }
+}
+function _highlightTreeSearch(root, q){
+  // Remove existing highlights first
+  root.querySelectorAll('mark.jt-hl').forEach(function(m){ m.replaceWith(document.createTextNode(m.textContent)); });
+  if(!q) return;
+  const walk=document.createTreeWalker(root, 4);
+  const toMark=[];
+  let node;
+  while((node=walk.nextNode())){
+    if(node.textContent.toLowerCase().includes(q.toLowerCase())) toMark.push(node);
+  }
+  toMark.forEach(function(tn){
+    const idx=tn.textContent.toLowerCase().indexOf(q.toLowerCase());
+    if(idx<0) return;
+    const before=document.createTextNode(tn.textContent.slice(0,idx));
+    const mark=document.createElement('mark');
+    mark.className='jt-hl';
+    mark.style.cssText='background:#f0c040;color:#000;border-radius:2px';
+    mark.textContent=tn.textContent.slice(idx,idx+q.length);
+    const after=document.createTextNode(tn.textContent.slice(idx+q.length));
+    tn.parentNode.replaceChild(after, tn);
+    tn.parentNode.insertBefore(mark, after);
+    tn.parentNode.insertBefore(before, mark);
+  });
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e){
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){
+    e.preventDefault();
+    const tab=tabs.find(function(t){ return t.id===activeTabId; });
+    if(!tab) return;
+    if(tab.type==='custom'||tab.type==='new-custom') executeCustomReq(activeTabId);
+    else if(tab.type==='endpoint') execute(activeTabId);
+  }
+});
+
+// ── Collection Runner ─────────────────────────────────────────────────────────
+function runCollection(category){
+  const reqs=customRequests.filter(function(r){
+    const c=r.category||'Custom';
+    return c===category||c.startsWith(category+' > ');
+  });
+  if(!reqs.length){ showToast('No requests in "'+category+'"','error'); return; }
+  const orgAlias=document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  const apiVersion=DEFAULT_API_VERSION||'v67.0';
+
+  let ov=document.getElementById('cr-runner-overlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='cr-runner-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9500;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(ov); }
+  ov.style.display='flex';
+
+  ov.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;width:700px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <span style="flex:1;font-weight:600;font-size:13px">&#9654; Run: ${esc(category)} (${reqs.length} requests)</span>
+      <button class="icon-btn" onclick="document.getElementById('cr-runner-overlay').remove()">&#10005;</button>
+    </div>
+    <div style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--fg3)">Delay between requests (ms):</span>
+      <input id="cr-runner-delay" type="number" value="300" min="0" max="5000" style="width:70px;font-size:11px;padding:3px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--fg)">
+      <button class="btn btn-pri" style="font-size:11px;padding:4px 14px" id="cr-runner-run-btn" onclick="_runCollectionStart()">&#9654; Run All</button>
+      <button class="btn btn-sec" style="font-size:11px;padding:4px 14px" id="cr-runner-csv-btn" onclick="_runnerExportCsv()" disabled>Export CSV</button>
+      <span id="cr-runner-summary" style="font-size:11px;color:var(--fg3);margin-left:auto"></span>
+    </div>
+    <div style="overflow-y:auto;flex:1">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:var(--bg3);font-size:10px;color:var(--fg3)">
+          <th style="padding:5px 8px;text-align:left;width:60px">Status</th>
+          <th style="padding:5px 8px;text-align:left;width:50px">Method</th>
+          <th style="padding:5px 8px;text-align:left">Name</th>
+          <th style="padding:5px 8px;text-align:left">Path</th>
+          <th style="padding:5px 8px;text-align:right;width:70px">Duration</th>
+          <th style="padding:5px 8px;text-align:center;width:50px">Open</th>
+        </tr></thead>
+        <tbody id="cr-runner-tbody">
+          ${reqs.map(function(r,i){ return '<tr id="cr-run-row-'+i+'" style="border-bottom:1px solid var(--border)">'+
+            '<td style="padding:5px 8px"><span id="cr-run-status-'+i+'" style="color:var(--fg3)">—</span></td>'+
+            '<td style="padding:5px 8px;font-family:monospace">'+esc(r.method)+'</td>'+
+            '<td style="padding:5px 8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.name)+'">'+esc(r.name)+'</td>'+
+            '<td style="padding:5px 8px;font-family:monospace;font-size:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.path)+'">'+esc(r.path)+'</td>'+
+            '<td style="padding:5px 8px;text-align:right" id="cr-run-dur-'+i+'">—</td>'+
+            '<td style="padding:5px 8px;text-align:center"><button class="btn btn-sec" style="font-size:9px;padding:1px 6px" onclick="_runnerOpenReq('+i+')" disabled id="cr-run-open-'+i+'">Open</button></td>'+
+          '</tr>'; }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+
+  // Store runner context
+  window._runnerReqs = reqs;
+  window._runnerOrgAlias = orgAlias;
+  window._runnerApiVersion = apiVersion;
+  window._runnerResults = [];
+}
+
+async function _runCollectionStart(){
+  const btn=document.getElementById('cr-runner-run-btn');
+  if(btn) btn.disabled=true;
+  const delay=parseInt((document.getElementById('cr-runner-delay')||{}).value||'300',10)||300;
+  const reqs=window._runnerReqs||[];
+  const orgAlias=window._runnerOrgAlias||'';
+  const apiVersion=window._runnerApiVersion||'v67.0';
+  window._runnerResults=[];
+  let pass=0, fail=0;
+
+  for(let i=0;i<reqs.length;i++){
+    const r=reqs[i];
+    const statusEl=document.getElementById('cr-run-status-'+i);
+    const durEl=document.getElementById('cr-run-dur-'+i);
+    const rowEl=document.getElementById('cr-run-row-'+i);
+    if(statusEl) statusEl.textContent='⟳';
+    const rId=++reqCounter;
+    const result=await new Promise(function(resolve){
+      pendingReqs[rId]=function(res){ resolve(res); };
+      vscMsg({type:'executeCustom', requestId:rId, orgAlias, method:r.method,
+        path:r.path, headers:r.headers||{}, body:r.body||'', apiVersion});
+    });
+    window._runnerResults.push({req:r, result});
+    const st=result.status;
+    const ok=st>=200&&st<300;
+    pass+=ok?1:0; fail+=ok?0:1;
+    if(statusEl){ statusEl.textContent=st||'ERR'; statusEl.style.color=ok?'var(--green)':'var(--red)'; }
+    if(durEl) durEl.textContent=(result.durationMs||0)+'ms';
+    if(rowEl) rowEl.style.background=ok?'rgba(0,80,0,0.08)':'rgba(80,0,0,0.08)';
+    const openBtn=document.getElementById('cr-run-open-'+i);
+    if(openBtn) openBtn.disabled=false;
+    const summary=document.getElementById('cr-runner-summary');
+    if(summary) summary.textContent=(i+1)+'/'+reqs.length+' done — ✓'+pass+' ✗'+fail;
+    if(i<reqs.length-1) await new Promise(function(r){ setTimeout(r, delay); });
+  }
+  if(btn) btn.disabled=false;
+  const csvBtn=document.getElementById('cr-runner-csv-btn');
+  if(csvBtn) csvBtn.disabled=false;
+}
+
+function _runnerOpenReq(idx){
+  const reqs=window._runnerReqs||[];
+  const r=reqs[idx];
+  if(!r) return;
+  // Open in new tab
+  openCustomRequest(r);
+  document.getElementById('cr-runner-overlay')?.remove();
+}
+
+function _runnerExportCsv(){
+  const results=window._runnerResults||[];
+  if(!results.length){ showToast('No results to export','error'); return; }
+  const rows=[['Name','Method','Path','Status','Duration (ms)']];
+  results.forEach(function(row){ rows.push([row.req.name,row.req.method,row.req.path,row.result.status,row.result.durationMs||0]); });
+  const csv=rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='collection-run.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Sidebar resize ────────────────────────────────────────────────────────────
+(function(){
+  const resizer=document.getElementById('sidebar-resizer');
+  const sidebar=document.getElementById('sidebar');
+  if(!resizer||!sidebar) return;
+  let startX=0, startW=0;
+  resizer.addEventListener('mousedown',function(e){
+    startX=e.clientX; startW=sidebar.offsetWidth;
+    resizer.classList.add('dragging');
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!resizer.classList.contains('dragging')) return;
+    const w=Math.max(160,Math.min(520,startW+(e.clientX-startX)));
+    sidebar.style.width=w+'px';
+  });
+  document.addEventListener('mouseup',function(){
+    resizer.classList.remove('dragging');
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+  });
+})();
+
+// ── Dark/light theme toggle ───────────────────────────────────────────────────
+let _themeMode='dark';
+function toggleTheme(){
+  _themeMode=_themeMode==='dark'?'light':'dark';
+  const btn=document.getElementById('theme-toggle-btn');
+  if(_themeMode==='light'){
+    document.documentElement.style.setProperty('--bg','#f8f9fb');
+    document.documentElement.style.setProperty('--bg2','#eef0f5');
+    document.documentElement.style.setProperty('--bg3','#e2e5ee');
+    document.documentElement.style.setProperty('--fg','#1a1d27');
+    document.documentElement.style.setProperty('--fg2','#3a3f55');
+    document.documentElement.style.setProperty('--fg3','#7a819a');
+    document.documentElement.style.setProperty('--border','#cdd2e1');
+    if(btn) btn.textContent='☀';
+  } else {
+    document.documentElement.style.removeProperty('--bg');
+    document.documentElement.style.removeProperty('--bg2');
+    document.documentElement.style.removeProperty('--bg3');
+    document.documentElement.style.removeProperty('--fg');
+    document.documentElement.style.removeProperty('--fg2');
+    document.documentElement.style.removeProperty('--fg3');
+    document.documentElement.style.removeProperty('--border');
+    if(btn) btn.textContent='🌙';
+  }
+}
 
 // Bootstrap — notify extension
 vscMsg({type:'ready'});

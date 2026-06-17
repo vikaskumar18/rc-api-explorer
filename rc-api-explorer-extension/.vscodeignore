@@ -26,6 +26,9 @@ test-swap-builder.html
 # API reference docs (large, not needed at runtime)
 docs/**
 
+# Collections hosted on GitHub — fetched at runtime, not bundled
+collections/**
+
 # Workspace run data
 .rc-explorer/**
 

@@ -974,6 +974,7 @@ div:hover>.cr-pin-btn, div:hover>.cr-action-btn{opacity:1}
   <button class="rail-btn" onclick="switchRail('history')"   title="History" data-panel="history">&#128336;</button>
   <button class="rail-btn" onclick="openPstBuilderTab()"     title="PST Builder (Quote)" style="font-size:14px">&#9889;</button>
   <button class="rail-btn" onclick="openOrderBuilderTab()"   title="Order Builder" style="font-size:14px">&#128220;</button>
+  <button class="rail-btn" onclick="openCfgBuilderTab()"    title="Configurator Builder" style="font-size:14px">&#9881;</button>
 </div>
 
 <!-- SIDEBAR -->

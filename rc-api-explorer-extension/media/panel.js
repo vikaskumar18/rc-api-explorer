@@ -417,6 +417,7 @@ function closeTab(tabId){
   tabs.splice(idx,1);
   const panel = document.getElementById('tp-'+tabId);
   if(panel) panel.remove();
+  delete cfgBuilderState[tabId];
   if(activeTabId===tabId){
     if(tabs.length) activateTab(tabs[Math.max(0,idx-1)].id);
     else{
@@ -500,7 +501,15 @@ function buildEpPanel(panel, tabId, ep){
       '<span style="font-size:11px;color:var(--fg2)">This API is complex — use the visual builder instead.</span>'+
       ' <button class="btn btn-pri" onclick="openSwapBuilderTab()" style="font-size:11px;padding:3px 10px;background:#8e44ad">&#8646; Open Swap Builder</button>'+
       '</div>'
+    : (['cfg-1','cfg-3','cfg-5','cfg-7','cfg-8','cfg-9','cfg-10'].indexOf(ep.id) >= 0)
+    ? '<div style="margin:8px 0 10px;padding:8px 10px;background:#e67e2215;border-radius:6px;border-left:3px solid #e67e22">'+
+      '<span style="font-size:11px;color:var(--fg2)"><b>Stateful session API</b> — <code>contextId</code> must flow through every call.</span>'+
+      ' <span style="font-size:11px;color:var(--fg3)">load-instance → add-nodes → save-instance</span>'+
+      ' <button class="btn" onclick="openCfgBuilderTab()" style="font-size:11px;padding:3px 10px;background:#e67e22;color:#fff;border-color:#e67e22;margin-left:8px">&#9881; Configurator Builder</button>'+
+      '</div>'
     : '';
+
+  const hasExamples = !!ep.examples;
 
   panel.innerHTML =
     '<div class="d-title">'+esc(ep.name)+'</div>'+
@@ -516,11 +525,13 @@ function buildEpPanel(panel, tabId, ep){
       '<div class="tab on"  onclick="showSubTab(\'params\',this,\''+tabId+'\')">Parameters</div>'+
       '<div class="tab"     onclick="showSubTab(\'request\',this,\''+tabId+'\')">Request</div>'+
       '<div class="tab"     onclick="showSubTab(\'response\',this,\''+tabId+'\')">Response</div>'+
+      (hasExamples?'<div class="tab" onclick="showSubTab(\'examples\',this,\''+tabId+'\')">&#128218; Examples</div>':'')+
       '<div class="tab"     onclick="showSubTab(\'tryit\',this,\''+tabId+'\')">&#9654; Try It</div>'+
     '</div>'+
     '<div id="stp-params-'+tabId+'" class="tp on">'+paramsHtml+'</div>'+
     '<div id="stp-request-'+tabId+'" class="tp"><pre>'+esc(ep.request)+'</pre></div>'+
     '<div id="stp-response-'+tabId+'" class="tp"><pre>'+esc(ep.response)+'</pre></div>'+
+    (hasExamples?'<div id="stp-examples-'+tabId+'" class="tp">'+buildExamplesPanel(ep,tabId)+'</div>':'')+
     '<div id="stp-tryit-'+tabId+'" class="tp"></div>';
 
   buildTryIt(ep, tabId);
@@ -534,6 +545,57 @@ function buildEpPanel(panel, tabId, ep){
       },10);
     });
   },0);
+}
+
+function buildExamplesPanel(ep, tabId){
+  if(!ep.examples||!ep.examples.length) return '';
+  const cards = ep.examples.map(function(ex, i){
+    const badgeColor = ex.type==='initiate'?'#2980b9': ex.type==='modify'?'#27ae60': ex.type==='order'?'#e67e22':'#8e44ad';
+    const badgeLabel = ex.type==='initiate'?'Initiate': ex.type==='modify'?'Modify': ex.type==='order'?'Order':'Example';
+    return '<div style="margin-bottom:12px;border:1px solid var(--border);border-radius:6px;overflow:hidden">'+
+      '<div style="padding:8px 12px;background:var(--bg3);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border)">'+
+        '<span style="font-size:10px;padding:2px 7px;border-radius:3px;background:'+badgeColor+';color:#fff;font-weight:600">'+esc(badgeLabel)+'</span>'+
+        '<span style="font-size:12px;font-weight:600;color:var(--fg2)">'+esc(ex.label)+'</span>'+
+        '<button class="btn btn-sec" style="margin-left:auto;font-size:10px;padding:2px 8px" '+
+          'onclick="loadExample(\''+tabId+'\','+i+')" title="Load this payload into the Try It tab">'+
+          '&#9654; Load into Try It</button>'+
+      '</div>'+
+      '<div style="padding:8px 12px;font-size:11px;color:var(--fg3);border-bottom:1px solid var(--border)">'+esc(ex.desc)+'</div>'+
+      (ex.steps?'<div style="padding:6px 12px;background:var(--bg2)">'+
+        ex.steps.map(function(s){ return '<div style="font-size:11px;color:var(--fg2);padding:2px 0;display:flex;gap:6px"><span style="color:var(--acc)">→</span>'+esc(s)+'</div>'; }).join('')+
+      '</div>':'')+
+      '<pre style="margin:0;padding:10px 12px;font-size:11px;overflow-x:auto;background:var(--bg1);max-height:260px;overflow-y:auto">'+esc(JSON.stringify(JSON.parse(ex.body),null,2))+'</pre>'+
+    '</div>';
+  }).join('');
+  return '<div style="padding:4px 2px 8px">'+
+    '<div style="font-size:11px;color:var(--fg3);margin-bottom:10px;padding:6px 10px;background:var(--bg3);border-radius:4px;border-left:3px solid var(--acc)">'+
+      'Click <b>▶ Load into Try It</b> on any example to copy the payload and switch to the Try It tab.'+
+    '</div>'+cards+'</div>';
+}
+
+function loadExample(tabId, exIdx){
+  const panel = document.getElementById('tp-'+tabId);
+  if(!panel) return;
+  const tab = tabs.find(function(t){ return t.id===tabId; });
+  if(!tab) return;
+  const ep = endpoints.find(function(e){ return e.id===tab.epId; });
+  if(!ep||!ep.examples||!ep.examples[exIdx]) return;
+  const ex = ep.examples[exIdx];
+  // Switch to Try It tab
+  const tryItTab = panel.querySelector('.tab:last-child');
+  panel.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('on'); });
+  if(tryItTab) tryItTab.classList.add('on');
+  panel.querySelectorAll('.tp').forEach(function(t){ t.classList.remove('on'); });
+  const tryItPanel = document.getElementById('stp-tryit-'+tabId);
+  if(tryItPanel) tryItPanel.classList.add('on');
+  // Load body into Try It textarea
+  const bodyEl = document.getElementById('try-body-'+tabId);
+  if(bodyEl){
+    try{ bodyEl.value = JSON.stringify(JSON.parse(ex.body), null, 2); }
+    catch(_){ bodyEl.value = ex.body; }
+    bodyEl.dispatchEvent(new Event('input'));
+  }
+  showToast('Loaded: '+ex.label,'ok');
 }
 
 function showSubTab(name, clicked, tabId){
@@ -4599,6 +4661,7 @@ function _buildOrderPanel(panel, tabId){
     '<button class="btn btn-sec" onclick="obPreview(\''+tabId+'\')">&#128269; Preview Graph</button>'+
     '<button class="btn btn-pri" id="ob-exec-btn-'+tabId+'" onclick="executeOrder(\''+tabId+'\')">&#9654; Execute Order API</button>'+
     '<button class="btn btn-sec" onclick="obCopyApex(\''+tabId+'\')">Copy Apex</button>'+
+    '<button class="btn btn-sec" style="font-size:10px;color:var(--acc)" onclick="obDiagnoseContext(\''+tabId+'\')" title="Query SalesTransactionContext records in the selected org">&#128270; Diagnose Org</button>'+
     '</div>'+
     '<div id="ob-pill-'+tabId+'" style="margin-bottom:8px"></div>'+
     '<div class="resp-box" id="ob-resp-'+tabId+'" style="color:var(--fg3);min-height:80px">Preview / response will appear here.</div>';
@@ -4940,6 +5003,13 @@ function executeOrder(tabId){
   respEl.style.color='var(--fg3)'; respEl.textContent='Waiting for response…';
   if(pill) pill.innerHTML='';
 
+  // Pre-flight: validate cross-references have .id suffix
+  const xrefWarnings = _validateOrderGraphRefs(tabId);
+  if(xrefWarnings.length){
+    const msg = 'Cross-reference issue:\n'+xrefWarnings.join('\n')+'\n\nProceed anyway?';
+    if(!confirm(msg)){ btn.disabled=false; btn.textContent='▶ Execute Order API'; return; }
+  }
+
   let body;
   try{ body = applyVars(JSON.stringify(_buildOrderGraph(tabId))); }
   catch(e){ btn.disabled=false; btn.textContent='▶ Execute Order API'; showToast('Graph error: '+e.message,'error'); return; }
@@ -4965,8 +5035,17 @@ function executeOrder(tabId){
           (parsed.statusURL?'<div style="margin-top:2px;font-size:10px;color:var(--fg3)">Poll status: <code>'+esc(parsed.statusURL)+'</code></div>':'');
         setQuickVar('ORDER_ID', orderId, null);
       } else {
-        const errs = parsed&&parsed.errors ? parsed.errors.map(e=>'<li>'+esc(e.errorCode||'')+': '+esc(e.message||'')+'</li>').join('') : '';
-        pill.innerHTML = '<span class="status-pill serr">&#10005; Order API Failed</span>'+
+        const errList = (parsed&&parsed.errorResponse) ? parsed.errorResponse : (parsed&&parsed.errors ? parsed.errors : []);
+        const errs = errList.map(e=>'<li>'+esc(e.errorCode||'')+': '+esc(e.message||'')+'</li>').join('');
+        const hasCtxErr = errList.some(e=>(e.message||'').includes('SalesTransactionContext')||(e.message||'').includes('context definition'));
+        const ctxBanner = hasCtxErr
+          ? '<div style="margin-top:6px;padding:6px 10px;background:rgba(255,160,0,.12);border:1px solid rgba(255,160,0,.4);border-radius:4px;font-size:11px;color:#e6a000">'+
+            '&#9888; <b>Sales Transaction Context error</b> — the context definition referenced by this org is missing or inactive.<br>'+
+            'Fix: <b>Setup → Revenue Cloud → Sales Transaction Context Definitions</b> → verify the context is <b>Active</b> and all field mappings are complete.<br>'+
+            'Click <b>🔍 Diagnose Org</b> above to check org readiness, or contact your Salesforce admin.'+
+            '</div>'
+          : '';
+        pill.innerHTML = '<span class="status-pill serr">&#10005; Order API Failed</span>'+ctxBanner+
           (errs?'<ul style="margin:6px 0 0 16px;font-size:11px;color:var(--red)">'+errs+'</ul>':'');
       }
     }
@@ -4994,6 +5073,610 @@ System.debug(res.getStatusCode() + ' ' + res.getBody());`;
   navigator.clipboard.writeText(apex).then(()=>showToast('Apex copied!','success'),()=>showToast('Copy failed','error'));
 }
 
+// ── Configurator Session Builder ──────────────────────────────────────────────
+
+let cfgBuilderState = {};  // keyed by tabId
+
+function _cfgUuid(){
+  return 'xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    const r = Math.random()*16|0;
+    return (c==='x' ? r : (r&0x3|0x8)).toString(16);
+  });
+}
+
+function openCfgBuilderTab(){
+  const existing = tabs.find(function(t){ return t.type === 'cfg-builder'; });
+  if(existing){ activateTab(existing.id); return; }
+  const tabId = 'tab-' + (++tabCounter);
+  tabs.push({ id: tabId, type: 'cfg-builder', label: '⚙ Cfg Builder' });
+  cfgBuilderState[tabId] = {
+    transactionId: '', transactionType: 'Quote', contextId: '',
+    accountId: '', contactId: '',
+    phase: 'idle',
+    nodes: [], pendingNodes: [], nodeCounter: 0,
+    cfgOptions: {
+      executePricing: true, executeConfigurationRules: true,
+      addDefaultConfiguration: true, validateProductCatalog: true,
+      validateAmendRenewCancel: true, returnProductCatalogData: false,
+      qualifyAllProductsInTransaction: true
+    },
+    orgAlias: '', lastResp: null
+  };
+  renderTabBar();
+  const panel = document.createElement('div');
+  panel.id = 'tp-' + tabId;
+  panel.className = 'tab-panel';
+  document.getElementById('detail').appendChild(panel);
+  _buildCfgPanel(panel, tabId);
+  activateTab(tabId);
+}
+
+function _buildCfgPanel(panel, tabId){
+  panel.innerHTML =
+    '<div style="padding:16px 20px;overflow-y:auto;height:100%">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+      '<div style="font-size:16px;font-weight:600;color:var(--fg)">⚙ Configurator Session Builder</div>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button class="btn" onclick="cfgInnerTab(\'builder\',\''+tabId+'\')" id="cfg-inner-builder-'+tabId+'" style="font-size:11px;padding:3px 10px;background:var(--acc);color:#fff">Builder</button>' +
+        '<button class="btn" onclick="cfgInnerTab(\'ref\',\''+tabId+'\')" id="cfg-inner-ref-'+tabId+'" style="font-size:11px;padding:3px 10px">Reference</button>' +
+      '</div>' +
+    '</div>' +
+
+    // ── Builder inner panel
+    '<div id="cfg-builder-body-'+tabId+'">' +
+
+    // Section 1: Session
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">' +
+      '<div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:10px;display:flex;align-items:center;gap:8px">' +
+        '<span>① Session</span>' +
+        '<span id="cfg-phase-badge-'+tabId+'" style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--bg3);color:var(--fg3)">idle</span>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:3px">Transaction ID (Quote 0Q0 / Order 801) *</label>' +
+          '<input id="cfg-txn-'+tabId+'" placeholder="0Q0AW00000..." style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:12px" ' +
+          'oninput="cfgBuilderState[\''+tabId+'\'].transactionId=this.value;cfgBuilderState[\''+tabId+'\'].transactionType=this.value.startsWith(\'801\')?\'Order\':\'Quote\'">' +
+        '</div>' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:3px">Account ID (for qualification)</label>' +
+          '<input id="cfg-acct-'+tabId+'" placeholder="001AW..." style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:12px" ' +
+          'oninput="cfgBuilderState[\''+tabId+'\'].accountId=this.value">' +
+        '</div>' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:3px">Context ID (auto-filled on load)</label>' +
+          '<input id="cfg-ctx-'+tabId+'" placeholder="auto-filled…" readonly style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg3);color:var(--fg2);font-size:11px;font-family:monospace">' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+        '<button class="btn btn-pri" onclick="cfgLoadSession(\''+tabId+'\')" style="font-size:12px;padding:5px 14px">⚡ Load Session</button>' +
+        '<button class="btn" onclick="cfgGetInstance(\''+tabId+'\')" style="font-size:11px;padding:4px 10px" title="Refresh node tree from org">↻ Refresh Tree</button>' +
+        '<button class="btn" onclick="cfgRunRules(\''+tabId+'\')" style="font-size:11px;padding:4px 10px">▶ Run Rules</button>' +
+        '<button class="btn" onclick="cfgSaveInstance(\''+tabId+'\')" style="font-size:11px;padding:4px 10px;background:#27ae60;color:#fff;border-color:#27ae60">💾 Save Instance</button>' +
+        '<details style="display:inline-block;font-size:11px;color:var(--fg3)">' +
+          '<summary style="cursor:pointer;outline:none">⚙ Options</summary>' +
+          '<div id="cfg-opts-'+tabId+'" style="margin-top:6px;background:var(--bg3);padding:8px 10px;border-radius:5px;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">' +
+            ['executePricing','executeConfigurationRules','addDefaultConfiguration','validateProductCatalog',
+             'validateAmendRenewCancel','returnProductCatalogData','qualifyAllProductsInTransaction'].map(function(k){
+              return '<label style="display:flex;align-items:center;gap:5px;font-size:10px;cursor:pointer">' +
+                '<input type="checkbox" '+((['executePricing','executeConfigurationRules','addDefaultConfiguration','validateProductCatalog','validateAmendRenewCancel','qualifyAllProductsInTransaction'].indexOf(k)>=0)?'checked':'')+
+                ' onchange="cfgBuilderState[\''+tabId+'\'].cfgOptions[\''+k+'\']=this.checked"> '+k+'</label>';
+            }).join('') +
+          '</div>' +
+        '</details>' +
+      '</div>' +
+    '</div>' +
+
+    // Section 2: Context Tree
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">' +
+      '<div style="font-size:12px;font-weight:600;color:var(--fg);margin-bottom:8px">② Context Tree <span style="font-weight:400;color:var(--fg3);font-size:10px">(loads after Load Session or Refresh)</span></div>' +
+      '<div id="cfg-tree-'+tabId+'" style="font-size:11px;color:var(--fg3);font-style:italic">No session loaded yet.</div>' +
+    '</div>' +
+
+    // Section 3: Add Nodes
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
+        '<div style="font-size:12px;font-weight:600;color:var(--fg)">③ Add Line Items to Context</div>' +
+        '<button class="btn btn-pri" onclick="cfgAddPendingNode(\''+tabId+'\')" style="font-size:11px;padding:3px 10px">+ Draft Node</button>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--fg3);margin-bottom:10px">Fill in the fields below, then click <b>↑ Send to Org</b> to add all drafted nodes in one API call.</div>' +
+      '<div id="cfg-pending-'+tabId+'"></div>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:8px">' +
+        '<button id="cfg-submit-add-'+tabId+'" class="btn btn-pri" onclick="cfgExecuteAddNodes(\''+tabId+'\')" disabled style="font-size:12px;padding:5px 16px;opacity:0.45">↑ Send to Org</button>' +
+        '<div id="cfg-add-pill-'+tabId+'" style="font-size:11px;color:var(--fg3)"></div>' +
+      '</div>' +
+    '</div>' +
+
+    // Response box
+    '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">' +
+      '<div style="font-size:11px;font-weight:600;color:var(--fg2);margin-bottom:6px">Last Response</div>' +
+      '<div id="cfg-resp-pill-'+tabId+'"></div>' +
+      '<div id="cfg-resp-'+tabId+'" style="font-size:11px;font-family:monospace;color:var(--fg3);white-space:pre-wrap;max-height:280px;overflow-y:auto;margin-top:4px"></div>' +
+    '</div>' +
+
+    '</div>' + // end cfg-builder-body
+
+    // ── Reference inner panel
+    '<div id="cfg-ref-body-'+tabId+'" style="display:none">' +
+    _buildCfgReference() +
+    '</div>' +
+
+    '</div>'; // end outer padding
+}
+
+function cfgInnerTab(which, tabId){
+  document.getElementById('cfg-builder-body-'+tabId).style.display = which==='builder' ? '' : 'none';
+  document.getElementById('cfg-ref-body-'+tabId).style.display = which==='ref' ? '' : 'none';
+  const b = document.getElementById('cfg-inner-builder-'+tabId);
+  const r = document.getElementById('cfg-inner-ref-'+tabId);
+  if(b && r){
+    b.style.background = which==='builder' ? 'var(--acc)' : 'var(--bg3)';
+    b.style.color = which==='builder' ? '#fff' : 'var(--fg)';
+    r.style.background = which==='ref' ? 'var(--acc)' : 'var(--bg3)';
+    r.style.color = which==='ref' ? '#fff' : 'var(--fg)';
+  }
+}
+
+function cfgLoadSession(tabId){
+  const s = cfgBuilderState[tabId];
+  const orgAlias = document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  if(!s.transactionId.trim()){ showToast('Transaction ID required.','error'); return; }
+  s.orgAlias = orgAlias;
+  const body = {
+    transactionId: s.transactionId.trim(),
+    configuratorOptions: s.cfgOptions,
+    qualificationContext: {}
+  };
+  if(s.accountId.trim()) body.qualificationContext.accountId = s.accountId.trim();
+  if(s.contactId.trim()) body.qualificationContext.contactId = s.contactId.trim();
+
+  _cfgSetBadge(tabId, 'loading…', '#e67e22');
+  const reqId = ++reqCounter;
+  pendingReqs[reqId] = function(result){
+    _cfgHandleResponse(tabId, result, function(parsed){
+      const ctxId = parsed.contextId;
+      if(!ctxId){ _cfgShowResp(tabId, result, ''); showToast('No contextId in response — check the transaction ID.','error'); return; }
+      s.contextId = ctxId;
+      s.phase = 'loaded';
+      _cfgSetBadge(tabId, 'loaded', '#27ae60');
+      const ctxInput = document.getElementById('cfg-ctx-'+tabId);
+      if(ctxInput) ctxInput.value = ctxId;
+      // Save to env so other tabs can use {{CFG_CONTEXT_ID}}
+      setQuickVar('CFG_CONTEXT_ID', ctxId, null);
+      showToast('Session loaded — contextId saved to CFG_CONTEXT_ID','success');
+      _cfgShowResp(tabId, result, '');
+      cfgGetInstance(tabId);
+    });
+  };
+  vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+    method:'POST',
+    path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/load-instance',
+    headers:{}, body: JSON.stringify(body), apiVersion: DEFAULT_API_VERSION||'v66.0' });
+}
+
+function cfgGetInstance(tabId){
+  const s = cfgBuilderState[tabId];
+  if(!s.contextId){ showToast('Load a session first.','error'); return; }
+  const orgAlias = s.orgAlias || document.getElementById('org-select').value;
+  const reqId = ++reqCounter;
+  pendingReqs[reqId] = function(result){
+    _cfgHandleResponse(tabId, result, function(parsed){
+      // transaction may be a map (keyed by field name) or have salesTransactionItems array
+      const txn = parsed.transaction || {};
+      const items = txn.salesTransactionItems || txn.SalesTransactionItems || [];
+      // also handle map-of-maps shape: { "0QL...": { businessObjectType:"QuoteLineItem", ... } }
+      if(!items.length && typeof txn === 'object'){
+        const candidates = Object.values(txn).filter(function(v){
+          return v && typeof v === 'object' && (v.businessObjectType === 'QuoteLineItem' || v.businessObjectType === 'OrderItem');
+        });
+        s.nodes = candidates;
+      } else {
+        s.nodes = items.filter(function(n){ return n && (n.businessObjectType === 'QuoteLineItem' || n.businessObjectType === 'OrderItem' || !n.businessObjectType); });
+      }
+      _cfgRenderNodeTree(tabId);
+      _cfgShowResp(tabId, result, '');
+    });
+  };
+  vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+    method:'POST',
+    path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/get-instance',
+    headers:{}, body: JSON.stringify({contextId: s.contextId}), apiVersion: DEFAULT_API_VERSION||'v66.0' });
+}
+
+function _cfgRenderNodeTree(tabId){
+  const s = cfgBuilderState[tabId];
+  const el = document.getElementById('cfg-tree-'+tabId);
+  if(!el) return;
+  if(!s.nodes.length){ el.innerHTML = '<div style="font-size:11px;color:var(--fg3);font-style:italic">Context has no line items yet.</div>'; return; }
+  // Store paths in state so onclick can reference by index — avoids quote-escaping inside HTML attributes
+  s._nodePaths = s.nodes.map(function(node){
+    return [s.transactionId, node.id||node.SalesTransactionItemSource||''];
+  });
+  let html = '<div style="display:flex;flex-direction:column;gap:4px">';
+  s.nodes.forEach(function(node, idx){
+    // RC returns product info in various shapes depending on API version
+    const productName = (node.productDetails && (node.productDetails.name || node.productDetails.Name)) ||
+      (node.product && (node.product.name || node.product.Name || node.product.id)) ||
+      node.ProductCode || node.Name || node.name || node.Product || '';
+    const pid = esc(productName || node.id || '(unknown product)');
+    const qty = esc(String(node.Quantity||node.quantity||node.quantity||'-'));
+    const nid = esc(node.id||'');
+    const safeId = 'cfg-uqty-'+tabId+'-'+idx;
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border-radius:5px;font-size:11px">' +
+      '<span style="flex:1;color:var(--fg);font-weight:500">'+pid+'</span>' +
+      '<span style="color:var(--fg3);font-family:monospace;font-size:10px">'+nid+'</span>' +
+      '<span style="color:var(--fg2)">qty: '+qty+'</span>' +
+      '<input type="number" id="'+safeId+'" value="'+qty+'" min="0" style="width:52px;padding:2px 5px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px">' +
+      '<button class="btn" style="font-size:10px;padding:2px 8px" onclick="cfgUpdateNode(\''+tabId+'\','+idx+',document.getElementById(\''+safeId+'\').value)">Update</button>' +
+      '<button class="btn" style="font-size:10px;padding:2px 8px;color:#e74c3c;border-color:#e74c3c" onclick="cfgDeleteNode(\''+tabId+'\','+idx+')">Delete</button>' +
+    '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function cfgAddPendingNode(tabId){
+  const s = cfgBuilderState[tabId];
+  s.nodeCounter++;
+  const localRef = 'ref_' + _cfgUuid();
+  s.pendingNodes.push({
+    localRef: localRef, productId: '', pbeId: '', psmId: '',
+    qty: '1', unitPrice: '0',
+    addRelationship: true, mainItemId: '', prcId: '', prtId: '',
+    assocPricing: 'NotIncludedInBundlePrice', assocQtyMethod: 'Proportional'
+  });
+  _cfgRenderPendingNodes(tabId);
+}
+
+function cfgRemovePendingNode(tabId, localRef){
+  const s = cfgBuilderState[tabId];
+  s.pendingNodes = s.pendingNodes.filter(function(d){ return d.localRef !== localRef; });
+  _cfgRenderPendingNodes(tabId);
+}
+
+function _cfgRenderPendingNodes(tabId){
+  const s = cfgBuilderState[tabId];
+  const el = document.getElementById('cfg-pending-'+tabId);
+  const submitBtn = document.getElementById('cfg-submit-add-'+tabId);
+  if(!el) return;
+  if(!s.pendingNodes.length){
+    el.innerHTML = '<div style="font-size:11px;color:var(--fg3);font-style:italic;padding:6px 0">No drafts yet — click "+ Draft Node" to start.</div>';
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.style.opacity = '0.45'; }
+    return;
+  }
+  if(submitBtn){ submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
+  let html = '';
+  s.pendingNodes.forEach(function(draft, idx){
+    const ref = draft.localRef;
+    const sRef = JSON.stringify(ref);
+    html += '<div style="background:var(--bg3);border:1px solid #e67e2244;border-radius:6px;padding:10px 12px;margin-bottom:8px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<span style="font-size:11px;font-weight:600;color:var(--fg)">Draft node '+(idx+1)+'</span>' +
+          '<span style="font-size:10px;background:#e67e2222;color:#e67e22;border:1px solid #e67e2266;border-radius:10px;padding:1px 7px">not sent yet</span>' +
+        '</div>' +
+        '<button class="btn" style="font-size:10px;padding:2px 7px;color:#e74c3c;border-color:#e74c3c" onclick="cfgRemovePendingNode(\''+tabId+'\','+sRef+')">✕ Discard</button>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px;gap:6px;margin-bottom:8px">' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">Product2 ID (01t…) *</label>' +
+          '<input value="'+esc(draft.productId)+'" placeholder="01txx..." style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].productId=this.value"></div>' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">PricebookEntry ID (01u…) *</label>' +
+          '<input value="'+esc(draft.pbeId)+'" placeholder="01uxx..." style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].pbeId=this.value"></div>' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">ProductSellingModel (0jP…) *</label>' +
+          '<input value="'+esc(draft.psmId)+'" placeholder="0jPxx..." style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].psmId=this.value"></div>' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">Qty</label>' +
+          '<input type="number" value="'+esc(draft.qty)+'" min="0" style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].qty=this.value"></div>' +
+        '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">Unit Price</label>' +
+          '<input type="number" value="'+esc(draft.unitPrice)+'" min="0" step="0.01" style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].unitPrice=this.value"></div>' +
+      '</div>' +
+      '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;margin-bottom:6px">' +
+        '<input type="checkbox" '+(draft.addRelationship?'checked':'')+' onchange="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].addRelationship=this.checked;_cfgRenderPendingNodes(\''+tabId+'\')"> Add relationship (link to parent bundle QLI)' +
+      '</label>' +
+      (draft.addRelationship ?
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px;background:var(--bg2);border-radius:5px">' +
+          '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">Parent QLI ID (MainItem) *</label>' +
+            '<input value="'+esc(draft.mainItemId)+'" placeholder="0QLxx..." style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].mainItemId=this.value"></div>' +
+          '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">ProductRelatedComponent (0dS…)</label>' +
+            '<input value="'+esc(draft.prcId)+'" placeholder="0dSxx..." style="width:100%;box-sizing:border-box;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" oninput="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].prcId=this.value"></div>' +
+          '<div><label style="font-size:10px;color:var(--fg3);display:block;margin-bottom:2px">AssocItemPricing</label>' +
+            '<select style="width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--fg);font-size:11px" onchange="cfgBuilderState[\''+tabId+'\'].pendingNodes['+idx+'].assocPricing=this.value">' +
+              '<option value="NotIncludedInBundlePrice" '+(draft.assocPricing==='NotIncludedInBundlePrice'?'selected':'')+'>NotIncludedInBundlePrice</option>' +
+              '<option value="IncludedInBundlePrice" '+(draft.assocPricing==='IncludedInBundlePrice'?'selected':'')+'>IncludedInBundlePrice</option>' +
+            '</select></div>' +
+        '</div>'
+      : '') +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function _cfgBuildAddedNodes(s, draft){
+  const txId = s.transactionId;
+  const isOrder = s.transactionType === 'Order';
+  const qliType = isOrder ? 'OrderItem' : 'QuoteLineItem';
+  const relType = isOrder ? 'OrderItemRelationship' : 'QuoteLineRelationship';
+  const nodes = [{
+    path: [txId, draft.localRef],
+    addedObject: {
+      id: draft.localRef,
+      SalesTransactionItemSource: draft.localRef,
+      SalesTransactionItemParent: txId,
+      businessObjectType: qliType,
+      PricebookEntry: draft.pbeId,
+      ProductSellingModel: draft.psmId,
+      Product: draft.productId,
+      Quantity: parseFloat(draft.qty) || 1,
+      UnitPrice: parseFloat(draft.unitPrice) || 0
+    }
+  }];
+  if(draft.addRelationship && draft.mainItemId){
+    const relRef = 'ref_' + _cfgUuid();
+    nodes.push({
+      path: [txId, draft.localRef, relRef],
+      addedObject: {
+        id: relRef,
+        businessObjectType: relType,
+        MainItem: draft.mainItemId,
+        AssociatedItem: draft.localRef,
+        ...(draft.prcId ? { ProductRelatedComponent: draft.prcId } : {}),
+        ...(draft.prtId ? { ProductRelationshipType: draft.prtId } : {}),
+        AssociatedItemPricing: draft.assocPricing,
+        AssociatedQuantScaleMethod: draft.assocQtyMethod
+      }
+    });
+  }
+  return nodes;
+}
+
+function cfgExecuteAddNodes(tabId){
+  const s = cfgBuilderState[tabId];
+  if(!s.contextId){ showToast('Load a session first.','error'); return; }
+  if(!s.pendingNodes.length){ showToast('Add at least one node first.','error'); return; }
+  const orgAlias = s.orgAlias || document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+
+  const errors = [];
+  s.pendingNodes.forEach(function(d, i){
+    if(!d.productId) errors.push('Node '+(i+1)+': Product ID required');
+    if(!d.pbeId)     errors.push('Node '+(i+1)+': PricebookEntry ID required');
+    if(!d.psmId)     errors.push('Node '+(i+1)+': ProductSellingModel ID required');
+    if(d.addRelationship && !d.mainItemId) errors.push('Node '+(i+1)+': Parent QLI ID required when adding relationship');
+  });
+  if(errors.length){ showToast(errors[0],'error'); return; }
+
+  const allNodes = [];
+  s.pendingNodes.forEach(function(draft){
+    _cfgBuildAddedNodes(s, draft).forEach(function(n){ allNodes.push(n); });
+  });
+
+  const body = {
+    contextId: s.contextId,
+    configuratorOptions: s.cfgOptions,
+    addedNodes: allNodes
+  };
+  if(s.accountId){ body.qualificationContext = { accountId: s.accountId }; }
+  if(s.contactId){ body.qualificationContext = Object.assign(body.qualificationContext||{}, { contactId: s.contactId }); }
+
+  const pillEl = document.getElementById('cfg-add-pill-'+tabId);
+  if(pillEl) pillEl.innerHTML = '<span style="font-size:11px;color:var(--fg3)">Submitting…</span>';
+
+  const reqId = ++reqCounter;
+  pendingReqs[reqId] = function(result){
+    _cfgHandleResponse(tabId, result, function(){
+      s.pendingNodes = [];
+      s.phase = 'modified';
+      _cfgSetBadge(tabId, 'modified', '#e67e22');
+      _cfgRenderPendingNodes(tabId);
+      if(pillEl) pillEl.innerHTML = '<span style="font-size:11px;color:#27ae60">✓ Nodes added</span>';
+      _cfgShowResp(tabId, result, '');
+      cfgGetInstance(tabId);
+    });
+  };
+  vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+    method:'POST',
+    path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/add-nodes',
+    headers:{}, body: JSON.stringify(body), apiVersion: DEFAULT_API_VERSION||'v66.0' });
+}
+
+function cfgUpdateNode(tabId, nodeIdx, qty){
+  const s = cfgBuilderState[tabId];
+  if(!s.contextId){ showToast('No active session.','error'); return; }
+  const orgAlias = s.orgAlias || document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  const pathArr = s._nodePaths && s._nodePaths[nodeIdx];
+  if(!pathArr){ showToast('Node path not found — refresh tree first.','error'); return; }
+  const body = {
+    contextId: s.contextId,
+    configuratorOptions: s.cfgOptions,
+    updatedNodes: [{ path: pathArr, updatedAttributes: { Quantity: parseFloat(qty)||1 } }]
+  };
+  const reqId = ++reqCounter;
+  pendingReqs[reqId] = function(result){
+    _cfgHandleResponse(tabId, result, function(){
+      _cfgShowResp(tabId, result, '');
+      cfgGetInstance(tabId);
+    });
+  };
+  vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+    method:'POST',
+    path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/update-nodes',
+    headers:{}, body: JSON.stringify(body), apiVersion: DEFAULT_API_VERSION||'v66.0' });
+}
+
+function cfgDeleteNode(tabId, nodeIdx){
+  showConfirm('Delete this node from the configuration context?', function(){
+    const s = cfgBuilderState[tabId];
+    if(!s.contextId){ showToast('No active session.','error'); return; }
+    const orgAlias = s.orgAlias || document.getElementById('org-select').value;
+    if(!orgAlias){ showToast('Select an org first.','error'); return; }
+    const pathArr = s._nodePaths && s._nodePaths[nodeIdx];
+    if(!pathArr){ showToast('Node path not found — refresh tree first.','error'); return; }
+    const body = {
+      contextId: s.contextId,
+      configuratorOptions: s.cfgOptions,
+      deletedNodes: [{ path: pathArr }]
+    };
+    const reqId = ++reqCounter;
+    pendingReqs[reqId] = function(result){
+      _cfgHandleResponse(tabId, result, function(){
+        _cfgShowResp(tabId, result, '');
+        cfgGetInstance(tabId);
+      });
+    };
+    vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+      method:'POST',
+      path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/delete-nodes',
+      headers:{}, body: JSON.stringify(body), apiVersion: DEFAULT_API_VERSION||'v66.0' });
+  });
+}
+
+function cfgSaveInstance(tabId){
+  const s = cfgBuilderState[tabId];
+  if(!s.contextId){ showToast('Load a session first.','error'); return; }
+  const orgAlias = s.orgAlias || document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  const reqId = ++reqCounter;
+  pendingReqs[reqId] = function(result){
+    _cfgHandleResponse(tabId, result, function(parsed){
+      s.phase = 'saved';
+      _cfgSetBadge(tabId, 'saved ✓', '#27ae60');
+      _cfgShowResp(tabId, result, '');
+      showToast('Configuration saved to Salesforce!','success');
+    });
+  };
+  vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+    method:'POST',
+    path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/save-instance',
+    headers:{}, body: JSON.stringify({contextId: s.contextId}), apiVersion: DEFAULT_API_VERSION||'v66.0' });
+}
+
+function cfgRunRules(tabId){
+  const s = cfgBuilderState[tabId];
+  if(!s.transactionId){ showToast('Enter a Transaction ID first.','error'); return; }
+  const orgAlias = s.orgAlias || document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  const body = { transactionId: s.transactionId };
+  if(s.contextId) body.transactionContextId = s.contextId;
+  body.ruleOptions = { isUpdateContextRequired: true };
+  const reqId = ++reqCounter;
+  pendingReqs[reqId] = function(result){
+    _cfgShowResp(tabId, result, '');
+  };
+  vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
+    method:'POST',
+    path:'/services/data/v67.0/revenue/product-configurator/rules/actions/execute',
+    headers:{}, body: JSON.stringify(body), apiVersion:'v67.0' });
+}
+
+function _cfgHandleResponse(tabId, result, onSuccess){
+  let parsed = null;
+  try{ parsed = JSON.parse(result.body); }catch(_){}
+
+  // RC error shapes: { success:false, errors:[] } OR [{ message, errorCode }] (array at root)
+  const errArray = Array.isArray(parsed) ? parsed : (parsed && parsed.errors && parsed.success === false ? parsed.errors : null);
+  const firstErr = errArray && errArray[0];
+  const errCode = firstErr && (firstErr.errorCode || firstErr.code);
+  const errMsg  = firstErr && (firstErr.message || firstErr.msg || '');
+
+  if(errCode === 'CONTEXT_NOT_FOUND' || errCode === 'INVALID_SESSION_ID'){
+    const s = cfgBuilderState[tabId];
+    s.contextId = ''; s.phase = 'idle';
+    _cfgSetBadge(tabId, 'session expired', '#e74c3c');
+    const ctxInput = document.getElementById('cfg-ctx-'+tabId);
+    if(ctxInput) ctxInput.value = '';
+    showToast('Session expired — click Load Session to restart.','error');
+    _cfgShowResp(tabId, result, '');
+    return;
+  }
+
+  if(result.status >= 400){
+    const msg = errMsg || (parsed ? JSON.stringify(parsed).substring(0,120) : ('HTTP '+result.status));
+    _cfgShowResp(tabId, result, '');
+    showToast(msg.substring(0,100),'error');
+    return;
+  }
+
+  if(parsed && parsed.success === false && errMsg){
+    _cfgShowResp(tabId, result, '<span style="color:#e74c3c">'+esc(errMsg)+'</span>');
+    showToast(errMsg.substring(0,80),'error');
+    return;
+  }
+
+  if(onSuccess) onSuccess(parsed || {});
+}
+
+function _cfgShowResp(tabId, result, extraHtml){
+  const el = document.getElementById('cfg-resp-'+tabId);
+  const pill = document.getElementById('cfg-resp-pill-'+tabId);
+  if(!el) return;
+  const ok = result.status >= 200 && result.status < 300;
+  if(pill) pill.innerHTML = '<span style="font-size:11px;font-weight:600;color:'+(ok?'#27ae60':'#e74c3c')+'">HTTP '+result.status+'</span>' +
+    (result.durationMs ? ' <span style="font-size:10px;color:var(--fg3)">'+result.durationMs+'ms</span>' : '');
+  let body = result.body || '';
+  try{ body = JSON.stringify(JSON.parse(body), null, 2); }catch(_){}
+  el.innerHTML = (extraHtml||'') + '<pre style="margin:0;white-space:pre-wrap;word-break:break-all">'+esc(body)+'</pre>';
+}
+
+function _cfgSetBadge(tabId, label, color){
+  const el = document.getElementById('cfg-phase-badge-'+tabId);
+  if(!el) return;
+  el.textContent = label;
+  el.style.background = color+'22';
+  el.style.color = color;
+  el.style.border = '1px solid '+color+'55';
+}
+
+function _buildCfgReference(){
+  return '<div style="padding:4px 0;font-size:12px;color:var(--fg)">' +
+    '<div style="font-size:13px;font-weight:600;margin-bottom:12px">Configurator Session Lifecycle</div>' +
+    '<div style="display:flex;align-items:center;gap:6px;margin-bottom:16px;flex-wrap:wrap;font-size:11px">' +
+      '<div style="padding:5px 10px;background:#e67e2222;border:1px solid #e67e22;border-radius:5px;color:#e67e22;font-weight:600">1. load-instance</div>' +
+      '<span style="color:var(--fg3)">→</span>' +
+      '<div style="padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px">2. add-nodes / update-nodes / delete-nodes</div>' +
+      '<span style="color:var(--fg3)">→</span>' +
+      '<div style="padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px">3. (optional) run-rules</div>' +
+      '<span style="color:var(--fg3)">→</span>' +
+      '<div style="padding:5px 10px;background:#27ae6022;border:1px solid #27ae60;border-radius:5px;color:#27ae60;font-weight:600">4. save-instance</div>' +
+    '</div>' +
+
+    '<div style="font-size:12px;font-weight:600;margin-bottom:8px">addedNodes path rules</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px">' +
+      '<thead><tr style="border-bottom:1px solid var(--border)">' +
+        '<th style="text-align:left;padding:4px 8px;color:var(--fg3)">businessObjectType</th>' +
+        '<th style="text-align:left;padding:4px 8px;color:var(--fg3)">path length</th>' +
+        '<th style="text-align:left;padding:4px 8px;color:var(--fg3)">path contents</th>' +
+      '</tr></thead>' +
+      '<tbody>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">QuoteLineItem</td><td style="padding:4px 8px">2</td><td style="padding:4px 8px;font-family:monospace">[quoteId, ref_QLI]</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">QuoteLineRelationship</td><td style="padding:4px 8px">3</td><td style="padding:4px 8px;font-family:monospace">[quoteId, ref_QLI, ref_Rel]</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">OrderItem</td><td style="padding:4px 8px">2</td><td style="padding:4px 8px;font-family:monospace">[orderId, ref_Item]</td></tr>' +
+        '<tr><td style="padding:4px 8px">OrderItemRelationship</td><td style="padding:4px 8px">3</td><td style="padding:4px 8px;font-family:monospace">[orderId, ref_Item, ref_Rel]</td></tr>' +
+      '</tbody>' +
+    '</table>' +
+
+    '<div style="font-size:12px;font-weight:600;margin-bottom:8px">addedObject required fields (QLI)</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px">' +
+      '<thead><tr style="border-bottom:1px solid var(--border)">' +
+        '<th style="text-align:left;padding:4px 8px;color:var(--fg3)">Field</th>' +
+        '<th style="text-align:left;padding:4px 8px;color:var(--fg3)">Value</th>' +
+      '</tr></thead>' +
+      '<tbody>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">id</td><td style="padding:4px 8px">same as localRef (ref_…)</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">SalesTransactionItemSource</td><td style="padding:4px 8px">same as id</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">SalesTransactionItemParent</td><td style="padding:4px 8px">transactionId (Quote/Order)</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">businessObjectType</td><td style="padding:4px 8px">QuoteLineItem or OrderItem</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">PricebookEntry</td><td style="padding:4px 8px">01u… ID</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">ProductSellingModel</td><td style="padding:4px 8px">0jP… ID</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">Product</td><td style="padding:4px 8px">01t… ID</td></tr>' +
+        '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px;font-family:monospace">Quantity</td><td style="padding:4px 8px">number</td></tr>' +
+        '<tr><td style="padding:4px 8px;font-family:monospace">UnitPrice</td><td style="padding:4px 8px">number (0 if pricing executes)</td></tr>' +
+      '</tbody>' +
+    '</table>' +
+
+    '<div style="font-size:11px;background:var(--bg3);padding:8px 10px;border-radius:5px;color:var(--fg2)">' +
+      '<b>Tip:</b> Set <code>returnProductCatalogData: false</code> in options when calling without the Configurator UI — it reduces response size. ' +
+      'Session contexts expire after ~30 min of inactivity. If you get CONTEXT_NOT_FOUND, reload the session.' +
+    '</div>' +
+  '</div>';
+}
+
 // ── PST Configurator Modal (PCM API → auto-populate inserts) ──────────────────
 
 let _pstCfgState = {};  // keyed by tabId+localRef
@@ -5010,6 +5693,100 @@ function pstOpenConfigurator(tabId, localRef){
   const orgAlias = document.getElementById('org-select')?.value || '';
   _pstCfgState[stateKey] = { tabId, localRef, product: null, selections: {}, compSelections: {}, compAttrSelections: {}, subProductCache: {}, pendingSubFetch: new Set(), orgAlias, applyTarget: 'pst' };
   _pcmFetchAndOpenCfg(stateKey, liveProductId, orgAlias);
+}
+
+// Validates that all @{referenceId} cross-references in relationship records have .id suffix
+function _validateOrderGraphRefs(tabId){
+  const warnings = [];
+  try{
+    const graph = _buildOrderGraph(tabId);
+    const records = graph.graph.records || [];
+    records.forEach(function(r){
+      const rec = r.record || {};
+      Object.entries(rec).forEach(function([field, val]){
+        if(typeof val === 'string' && val.startsWith('@{') && !val.endsWith('.id}')){
+          warnings.push(field + ': "' + val + '" is missing .id — did you mean "' + val.replace('}','.id}') + '"?');
+        }
+      });
+    });
+  } catch(_){}
+  return warnings;
+}
+
+// Diagnoses org RC readiness by running 3 checks in parallel
+function obDiagnoseContext(tabId){
+  const orgAlias = document.getElementById('org-select').value;
+  if(!orgAlias){ showToast('Select an org first.','error'); return; }
+  const respEl = document.getElementById('ob-resp-'+tabId);
+  const pill = document.getElementById('ob-pill-'+tabId);
+  if(respEl){ respEl.style.color='var(--fg3)'; respEl.textContent='Running org diagnostics…'; }
+  if(pill){ pill.innerHTML='<div style="font-size:11px;color:var(--fg3);padding:4px 0">⌛ Checking org…</div>'; }
+
+  const results = {};
+  function _render(){
+    if(Object.keys(results).length < 3) return;
+    let html = '<div style="font-size:12px;font-weight:600;color:var(--fg2);margin-bottom:8px">&#128270; Org Diagnostic Results</div>';
+
+    // Check 1: AppUsageAssignment (RC enabled?)
+    const r1 = results.appUsage;
+    const rcEnabled = r1 && r1.totalSize > 0;
+    html += _diagRow('Revenue Cloud enabled (AppUsageAssignment records exist)', rcEnabled,
+      rcEnabled ? r1.totalSize+' record(s) found' : 'No AppUsageAssignment records — Revenue Cloud may not be enabled or no orders placed yet');
+
+    // Check 2: Pricebook
+    const r2 = results.pricebook;
+    const hasPb = r2 && r2.totalSize > 0;
+    html += _diagRow('Standard/Active Pricebooks available', hasPb,
+      hasPb ? r2.records.slice(0,3).map(function(p){ return esc(p.Name)+' ('+esc(p.Id)+')'; }).join(', ') : 'No active pricebooks found');
+
+    // Check 3: RC connect API accessible
+    const r3 = results.connect;
+    const connectOk = r3 && !r3.error && r3.status !== 0;
+    const connectMsg = r3 ? (r3.status===404 ? 'API path accessible (404 expected for GET)' : r3.status===405 ? 'API accessible (405 = method not allowed for GET, expected)' : 'HTTP '+r3.status) : 'Failed to reach';
+    html += _diagRow('Place Sales Transaction API reachable', connectOk || (r3&&(r3.status===404||r3.status===405)),
+      connectMsg + ' — if this fails check API version and org permissions');
+
+    html += '<div style="margin-top:8px;font-size:10px;color:var(--fg3)">'+
+      'For <b>SalesTransactionContext</b> errors: check <b>Setup → Revenue Cloud → Sales Transaction Context Definitions</b> — the context definition must be <b>Active</b>.</div>';
+
+    if(pill) pill.innerHTML = html;
+    if(respEl){ respEl.style.color='var(--fg3)'; respEl.textContent = JSON.stringify(results, null, 2); }
+  }
+
+  function _diagRow(label, ok, detail){
+    const icon = ok ? '&#9989;' : '&#9888;';
+    const color = ok ? '#27ae60' : '#e67e22';
+    return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;padding:5px 8px;background:var(--bg3);border-radius:4px">'+
+      '<span style="font-size:13px">'+icon+'</span>'+
+      '<div><div style="font-size:11px;font-weight:500;color:'+color+'">'+label+'</div>'+
+      '<div style="font-size:10px;color:var(--fg3);margin-top:1px">'+detail+'</div></div></div>';
+  }
+
+  // Check 1: AppUsageAssignment records
+  const r1 = ++reqCounter;
+  pendingReqs[r1] = function(res){
+    try{ results.appUsage = JSON.parse(res.body); }catch(_){ results.appUsage = {totalSize:0}; }
+    _render();
+  };
+  const q1 = encodeURIComponent("SELECT Id,AppUsageType FROM AppUsageAssignment WHERE AppUsageType='RevenueLifecycleManagement' LIMIT 5");
+  vscMsg({type:'executeCustom', requestId:r1, orgAlias, method:'GET', path:'/services/data/v66.0/query/?q='+q1, headers:{}, body:'', apiVersion:'v66.0'});
+
+  // Check 2: Active pricebooks
+  const r2 = ++reqCounter;
+  pendingReqs[r2] = function(res){
+    try{ results.pricebook = JSON.parse(res.body); }catch(_){ results.pricebook = {totalSize:0, records:[]}; }
+    _render();
+  };
+  const q2 = encodeURIComponent("SELECT Id,Name FROM Pricebook2 WHERE IsActive=true LIMIT 3");
+  vscMsg({type:'executeCustom', requestId:r2, orgAlias, method:'GET', path:'/services/data/v66.0/query/?q='+q2, headers:{}, body:'', apiVersion:'v66.0'});
+
+  // Check 3: RC connect API reachable (GET returns 404/405 — that's fine, just checking auth + path)
+  const r3 = ++reqCounter;
+  pendingReqs[r3] = function(res){
+    results.connect = {status: res.status};
+    _render();
+  };
+  vscMsg({type:'executeCustom', requestId:r3, orgAlias, method:'GET', path:'/services/data/v66.0/connect/rev/sales-transaction/actions/place', headers:{}, body:'', apiVersion:'v66.0'});
 }
 
 function obOpenConfigurator(tabId, localRef){

@@ -384,4 +384,45 @@ export const PLAYBOOKS: Playbook[] = [
       },
     ],
   },
+
+  // ─── Configurator Session Flow ─────────────────────────────────────────────
+  {
+    id:          'cfg-session-flow-v1',
+    name:        'Configurator Session Flow',
+    description: 'Load configurator session → add product nodes → run config rules → save instance.',
+    mode:        'playbook',
+    execution:   'step',
+    steps: [
+      {
+        id:          's1',
+        endpointId:  'cfg-5',
+        label:       'Step 1 — Load Instance (get contextId)',
+        initialBody: '{\n  "transactionId": "{{QUOTE_ID}}",\n  "qualificationContext": { "accountId": "{{ACCOUNT_ID}}" },\n  "configuratorOptions": {\n    "executePricing": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true,\n    "validateProductCatalog": true\n  }\n}',
+        extract: [
+          { from: '$.contextId', into: 'next.body.contextId' },
+        ],
+      },
+      {
+        id:          's2',
+        endpointId:  'cfg-3',
+        label:       'Step 2 — Add Nodes',
+        initialBody: '{\n  "contextId": "{{CFG_CONTEXT_ID}}",\n  "configuratorOptions": {\n    "executePricing": true,\n    "executeConfigurationRules": true\n  },\n  "addedNodes": []\n}',
+        extract: [],
+      },
+      {
+        id:          's3',
+        endpointId:  'cfg-4',
+        label:       'Step 3 — Run Config Rules',
+        initialBody: '{\n  "transactionId": "{{QUOTE_ID}}",\n  "transactionContextId": "{{CFG_CONTEXT_ID}}",\n  "ruleOptions": { "isUpdateContextRequired": false }\n}',
+        extract: [],
+      },
+      {
+        id:          's4',
+        endpointId:  'cfg-9',
+        label:       'Step 4 — Save Instance',
+        initialBody: '{\n  "contextId": "{{CFG_CONTEXT_ID}}"\n}',
+        extract: [],
+      },
+    ],
+  },
 ];

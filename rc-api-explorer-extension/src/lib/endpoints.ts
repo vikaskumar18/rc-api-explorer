@@ -6,6 +6,14 @@ export interface Param {
   location?: 'body' | 'query' | 'path'; // defaults to 'body' for POST, 'query' for GET
 }
 
+export interface EndpointExample {
+  type: string;
+  label: string;
+  desc: string;
+  steps: string[];
+  body: string;
+}
+
 export interface Endpoint {
   id: string;
   category: string;
@@ -18,6 +26,7 @@ export interface Endpoint {
   params: Param[];
   request: string;
   response: string;
+  examples?: EndpointExample[];
 }
 
 export const ENDPOINTS: Endpoint[] = [
@@ -289,7 +298,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v66.0) Transaction context ID.'},
       {name:'transactionId',type:'String',req:false,location:'body',desc:'(v66.0) Transaction ID.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "query": {},\n  "searchTerm": "Bundle",\n  "catalogId": "{{CATALOG_ID}}",\n  "limit": 10,\n  "enablePricing": false,\n  "enableQualification": false\n}',
     response:'{\n  "correlationId": "search-001",\n  "facets": [],\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "catalogs": [{"id": "0ZSAU000000ANZd4AO","name": "CAR and LCV"}],\n      "categories": [{"id": "0ZGAU000000BC2h4AG","name": "Configurable"}],\n      "productSellingModelOptions": [{"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen"}}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched Product records."}\n}' },
@@ -303,7 +312,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'limit',type:'Integer',req:false,location:'body',desc:'(v60.0) Number of items to include in response.'},
       {name:'offset',type:'Integer',req:false,location:'body',desc:'(v60.0) Offset size for catalog count.'},
       {name:'orderBy',type:'String[]',req:false,location:'body',desc:'(v60.0) Sort order for catalogs.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "limit": 10,\n  "offset": 0\n}',
     response:'{\n  "catalogs": [\n    {\n      "id": "0ZSAU000000ANZd4AO",\n      "name": "CAR and LCV",\n      "catalogType": "Sales",\n      "isActive": true\n    }\n  ],\n  "totalCount": 1,\n  "correlationId": "catalog-list-001"\n}' },
@@ -323,7 +332,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'filter',type:'Filter Input',req:false,location:'body',desc:'(v60.0) Filter records by supported criteria.'},
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom qualification procedure API name.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions from GPM.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "catalogId": "{{CATALOG_ID}}"\n}',
     response:'{\n  "categories": [\n    {\n      "id": "0ZGAU000000BC2h4AG",\n      "name": "Configurable",\n      "isActive": true,\n      "sortOrder": 1,\n      "subCategories": []\n    },\n    {\n      "id": "0ZGAU000000BC2k4AG",\n      "name": "PreConfigured",\n      "isActive": true,\n      "sortOrder": 2,\n      "subCategories": []\n    }\n  ],\n  "correlationId": "cat-list-001"\n}' },
@@ -358,7 +367,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v67.0) Transaction context ID.'},
       {name:'transactionId',type:'String',req:false,location:'body',desc:'(v67.0) Transaction ID.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v62.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v62.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "guidedSelectionResponseId": "{{GUIDED_SELECTION_RESPONSE_ID}}",\n  "limit": 10,\n  "enablePricing": true,\n  "enableQualification": true\n}',
     response:'{\n  "correlationId": "guided-sel-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct"\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched guided selection products."}\n}' },
@@ -382,7 +391,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'pricingProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom pricing procedure API name.'},
       {name:'productSellingModelId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the product selling model.'},
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom qualification procedure API name.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
     response:'{\n  "correlationId": "prod-detail-001",\n  "product": {\n    "id": "01tSa00000AzpIaIAJ",\n    "name": "ADM Offer",\n    "productCode": "BUND-SUB-ADM",\n    "isActive": true,\n    "isAssetizable": true,\n    "nodeType": "bundleProduct",\n    "configureDuringSale": "Allowed",\n    "productSpecificationType": {"name": "Commercial"},\n    "productSellingModelOptions": [\n      {"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen","pricingTerm": 1}}\n    ],\n    "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n    "attributeCategory": [{"name": "Subscription Details","attributes": [{"name": "Subscription Term","dataType": "Picklist","defaultValue": "36"}]}]\n  },\n  "status": {"code": "200","message": "Successfully fetched product details."}\n}' },
@@ -417,7 +426,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v67.0) Transaction context ID.'},
       {name:'transactionId',type:'String',req:false,location:'body',desc:'(v67.0) Transaction ID.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "categoryId": "{{CATEGORY_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "limit": 20,\n  "enableQualification": true,\n  "enablePricing": true,\n  "orderBy": ["name:asc"]\n}',
     response:'{\n  "correlationId": "prod-list-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "categories": [{"id": "0ZGAU000000BC2h4AG","name": "Configurable"}],\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n      "productSellingModelOptions": [{"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen"}}]\n    }\n  ],\n  "totalCount": 1,\n  "status": {"code": "200","message": "Successfully fetched products."}\n}' },
@@ -435,7 +444,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'contextMapping',type:'String',req:false,location:'body',desc:'(v60.0) Context mapping for hydration.'},
       {name:'correlationId',type:'String',req:false,location:'body',desc:'(v60.0) Unique request identifier.'},
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom qualification procedure API name.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "productIds": [\n    "{{PRODUCT_ID}}"\n  ],\n  "catalogId": "{{CATALOG_ID}}",\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
     response:'{\n  "correlationId": "qual-001",\n  "qualificationResults": [\n    {\n      "productId": "01tSa00000AzpIaIAJ",\n      "isQualified": true,\n      "reasons": []\n    }\n  ],\n  "status": {"code": "200","message": "Qualification completed successfully."}\n}' },
@@ -462,7 +471,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the sales transaction context instance.'},
       {name:'transactionId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the quote or order.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v67.0) Fetch eligible promotions. Default: false.'},
-      {name:'userContext',type:'User Context Input[]',req:false,location:'body',desc:'(v67.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input[]',req:false,location:'body',desc:'(v67.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "currencyCode": "USD",\n  "enablePricing": true,\n  "enableQualification": true,\n  "filter": [\n    {"criteria": [{"property": "isActive","operator": "eq","value": true}]}\n  ],\n  "limit": 12,\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "transactionId": "{{QUOTE_OR_ORDER_ID}}"\n}',
     response:'{\n  "correlationId": "rec-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched recommendations."}\n}' },
@@ -474,7 +483,7 @@ export const ENDPOINTS: Endpoint[] = [
     params:[
       {name:'catalogId',type:'String',req:true,location:'path',desc:'ID of the catalog.'},
       {name:'correlationId',type:'String',req:false,location:'body',desc:'(v60.0) Unique request identifier.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
     response:'{\n  "id": "0ZSAU000000ANZd4AO",\n  "name": "CAR and LCV",\n  "catalogType": "Sales",\n  "isActive": true,\n  "correlationId": "cat-detail-001"\n}' },
@@ -495,7 +504,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'filter',type:'Filter Input',req:false,location:'body',desc:'(v60.0) Filter records by criteria.'},
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom qualification procedure API name.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions from GPM.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "enableQualification": true\n}',
     response:'{\n  "correlationId": "cat-detail-001",\n  "category": {\n    "id": "0ZGAU000000BC2h4AG",\n    "name": "Configurable",\n    "isActive": true,\n    "sortOrder": 1,\n    "catalogId": "0ZSAU000000ANZd4AO",\n    "subCategories": [],\n    "isQualified": true\n  },\n  "status": {"code": "200","message": "Successfully fetched category details."}\n}' },
@@ -517,7 +526,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'priceBookId',type:'String',req:false,location:'body',desc:'(v61.0) Price book ID for prices.'},
       {name:'pricingProcedure',type:'String',req:false,location:'body',desc:'(v61.0) Custom pricing procedure API name.'},
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v61.0) Custom qualification procedure API name.'},
-      {name:'userContext',type:'User Context Input[]',req:false,location:'body',desc:'(v61.0) User context details (accountId, contactId).'},
+      {name:'userContext',type:'User Context Input[]',req:false,location:'body',desc:'(v61.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "productData": [\n    {"productId": "{{PRODUCT_ID}}","productSellingModelId": "{{SELLING_MODEL_ID}}"}\n  ],\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "enablePricing": true,\n  "enableQualification": false\n}',
     response:'{\n  "correlationId": "bulk-detail-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "isAssetizable": true,\n      "configureDuringSale": "Allowed",\n      "productSpecificationType": {"name": "Commercial"},\n      "productSellingModelOptions": [\n        {"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen","pricingTerm": 1,"pricingTermUnit": "Months"}}\n      ],\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n      "attributeCategory": [{"name": "Subscription Details","attributes": [{"name": "Subscription Term","dataType": "Picklist","defaultValue": "36","isRequired": true}]}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched bulk product details."}\n}' },
@@ -682,73 +691,179 @@ export const ENDPOINTS: Endpoint[] = [
   // Configurator
   { id:'cfg-1', category:'Configurator', name:'Configuration', methods:['POST'],
     path:'/connect/cpq/configurator/actions/configure', version:'v60.0',
-    desc:'Initiates a new configuration context or adds, updates, or deletes nodes in an existing configuration context.',
+    desc:'Retrieve and update a product\'s configuration from a configurator. Executes configuration rules, validates bundle structure, notifies of violations, and returns pricing. Use to initiate a new configuration context (pass transactionId + transactionLineId) OR modify an existing one (pass transactionContextId + addedNodes/updatedNodes/deletedNodes).',
     page:970,
     params:[
-      {name:'transactionId',type:'String',req:true,desc:'The ID of the transaction that contains the transaction line item for which you want to configure products.'},
-      {name:'transactionLineId',type:'String',req:false,desc:'The ID of the transaction line item for which you want to configure products.'},
-      {name:'correlationId',type:'String',req:false,desc:'A unique correlation ID that you can use to track a request throughout the configuration process.'},
-      {name:'configuratorOptions',type:'Object',req:false,desc:'Options that determine how the configurator processes the request.'},
-      {name:'addedNodes',type:'Object[]',req:false,desc:'Information about the product nodes to add to the configuration context.'},
-      {name:'updatedNodes',type:'Object[]',req:false,desc:'Information about the product nodes to update in the configuration context.'},
-      {name:'deletedNodes',type:'Object[]',req:false,desc:'Information about the product nodes to delete from the configuration context.'},
-      {name:'qualificationContext',type:'Object',req:false,desc:'Context information to use for qualification checks.'},
-      {name:'transactionContextId',type:'String',req:false,desc:'The ID of an existing transaction context to reuse.'},
-      {name:'contextResponseType',type:'String',req:false,desc:'Specifies the type of response to return. For example, FullContext.'},
+      {name:'transactionId',type:'String',req:true,desc:'ID of the sales transaction (quote or order) being configured. Starts with 0Q0.'},
+      {name:'transactionLineId',type:'String',req:false,desc:'ID of the top-level line item to configure (the bundle root). Starts with 0QL. Required when initiating a new context.'},
+      {name:'correlationId',type:'String',req:false,desc:'Optional UUID for request traceability in logs. Generate any unique string e.g. a UUID.'},
+      {name:'transactionContextId',type:'String',req:false,desc:'ID of an existing transaction context to continue modifying (returned from a previous configure call). Required when adding/updating/deleting nodes in an existing context.'},
+      {name:'contextResponseType',type:'String',req:false,desc:'Response scope. Valid values: Delta (only changed items), Full (all items in transaction), None (empty response), Product (items related to configured product). Required for transactions >1000 line items (v65.0+).'},
+      {name:'configuratorOptions',type:'Object',req:false,desc:'Options controlling configurator behavior. addDefaultConfiguration (Boolean v60) — add default configs. executeConfigurationRules (Boolean v60) — run config rules. executePricing (Boolean v60) — run pricing. explainabilityEnabled (Boolean v66) — collect solver explainability logs (use with Action Logs API). pricingProcedure (String v60) — name of pricing procedure to use. qualifyAllProductsInTransaction (Boolean v60) — run qualification on all products. returnProductCatalogData (Boolean v60) — include catalog metadata; set false when calling without the Configurator UI. validateAmendRenewCancel (Boolean v60) — run A/R/C validations. validateProductCatalog (Boolean v60) — validate against catalog.'},
+      {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules. accountId (String v60) — account ID. contactId (String v60) — contact ID. contextId (String v60) — ID of an existing session context.'},
+      {name:'addedNodes',type:'Configurator Added Node Input[]',req:false,desc:'Nodes to add. Each entry has: path (String[] — hierarchy of IDs from transactionId down to the new node; 2 IDs for a line item, 3 IDs for a relationship) and addedObject (Map<String,Object> — supports all Sales Transaction context fields). For a QuoteLineItem: set businessObjectType="QuoteLineItem", SalesTransactionItemSource=same as id, SalesTransactionItemParent=parent transaction ID, PricebookEntry, ProductSellingModel, Product, Quantity, UnitPrice. For a relationship: businessObjectType="QuoteLineRelationship" (quotes) or "OrderItemRelationship" (orders), MainItem=parent line ID, AssociatedItem=ref_ ID of the child, ProductRelatedComponent, AssociatedItemPricing, AssociatedQuantScaleMethod.'},
+      {name:'updatedNodes',type:'Object[]',req:false,desc:'Nodes to update. Each has: path (String[] pointing to the node) and updatedAttributes (object with fields to change, e.g. { "Quantity": 5 }).'},
+      {name:'deletedNodes',type:'Object[]',req:false,desc:'Nodes to delete. Each has: path (String[] pointing to the node to remove).'},
     ],
-    request:'{\n  "transactionId": "8013i000002AAAAA",\n  "transactionLineId": "8023i000002BBBBB",\n  "correlationId": "unique-correlation-id-001",\n  "configuratorOptions": {\n    "allowPartialSuccess": true\n  },\n  "addedNodes": [\n    {\n      "productId": "01txx0000000002AAA",\n      "quantity": 1,\n      "parentNodeId": "node-root-001"\n    }\n  ],\n  "updatedNodes": [\n    {\n      "nodeId": "node-001",\n      "quantity": 2\n    }\n  ],\n  "deletedNodes": [\n    {\n      "nodeId": "node-002"\n    }\n  ],\n  "contextResponseType": "FullContext"\n}',
-    response:'{\n  "contextId": "0YESa00000001AAAA",\n  "transactionId": "8013i000002AAAAA",\n  "transactionLineId": "8023i000002BBBBB",\n  "status": "InProgress",\n  "configurationNodes": [\n    {\n      "nodeId": "node-root-001",\n      "productId": "01tSa00000AzpIaIAJ",\n      "quantity": 1,\n      "attributes": [\n        {"name": "Subscription Term", "value": "36", "dataType": "Picklist"},\n        {"name": "Vehicle Type", "value": null, "dataType": "Picklist", "isRequired": true}\n      ]\n    }\n  ],\n  "violations": []\n}' },
+    request:'{\n  "transactionId": "0Q0AW00000123ABCDE",\n  "transactionLineId": "0QLAW000001XYZABCD",\n  "correlationId": "c95246d4-102c-4ecd-a263-f74ac525d1e5",\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "qualifyAllProductsInTransaction": true\n  },\n  "contextResponseType": "Full",\n  "qualificationContext": {\n    "accountId": "001AW00001s9qg4YAA",\n    "contactId": "003AW00001XYZABCD"\n  },\n  "transactionContextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "addedNodes": [\n    {\n      "path": ["0Q0AW00000123ABCDE", "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589"],\n      "addedObject": {\n        "id": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "SalesTransactionItemSource": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "SalesTransactionItemParent": "0Q0AW00000123ABCDE",\n        "businessObjectType": "QuoteLineItem",\n        "PricebookEntry": "01uSa00000650DsIAI",\n        "ProductSellingModel": "0jPSa00000007SjMAI",\n        "Product": "01tSa00000AzpIXIAZ",\n        "Quantity": 1,\n        "UnitPrice": 33.96\n      }\n    },\n    {\n      "path": ["0Q0AW00000123ABCDE", "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589", "ref_d85b036d_d305_4bb6_aba8_a1dff645a664"],\n      "addedObject": {\n        "id": "ref_d85b036d_d305_4bb6_aba8_a1dff645a664",\n        "businessObjectType": "QuoteLineRelationship",\n        "MainItem": "0QLAW000001XYZABCD",\n        "AssociatedItem": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "ProductRelatedComponent": "0dSAW0000000q2T2AQ",\n        "ProductRelationshipType": null,\n        "AssociatedItemPricing": "NotIncludedInBundlePrice",\n        "AssociatedQuantScaleMethod": "Proportional"\n      }\n    }\n  ],\n  "updatedNodes": [\n    {\n      "path": ["0Q0AW00000123ABCDE", "0QLAW000001XYZABCD"],\n      "updatedAttributes": {\n        "Quantity": 2\n      }\n    }\n  ],\n  "deletedNodes": [\n    {\n      "path": ["0Q0AW00000123ABCDE", "0QLAW000001SOME_OLD_LINE"]\n    }\n  ]\n}',
+    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "success": true,\n  "errors": [],\n  "salesTransaction": {\n    "id": "0Q0AW00000123ABCDE",\n    "salesTransactionItems": [\n      {\n        "id": "0QLAW000001XYZABCD",\n        "product": { "id": "01tSa00000AzpIaIAJ", "name": "ADM Offer", "productCode": "BUND-SUB-ADM" },\n        "quantity": 2,\n        "unitPrice": 33.96,\n        "totalPrice": 67.92,\n        "salesTransactionItemRelationships": [\n          {\n            "id": "ref_relationship_001",\n            "associatedItem": { "id": "ref_component_001" },\n            "associatedItemPricing": "NotIncludedInBundlePrice"\n          }\n        ]\n      }\n    ]\n  },\n  "productQualifications": {\n    "01tSa00000AzpIXIAZ": { "isQualified": true }\n  },\n  "configuratorMessages": {},\n  "violations": []\n}',
+    examples:[
+      {
+        type:'initiate',
+        label:'1 — Initiate a new configuration context (Quote)',
+        desc:'First call for a bundle line item. Pass transactionId (Quote ID) + transactionLineId (top-level QLI). The response gives you contextId — save it for all subsequent modify calls.',
+        steps:[
+          'Replace transactionId with your Quote ID (starts with 0Q0)',
+          'Replace transactionLineId with the bundle root QLI ID (starts with 0QL)',
+          'Replace accountId in qualificationContext with your Account ID',
+          'Response contextId is used as transactionContextId in all follow-up calls'
+        ],
+        body:'{"transactionId":"0Q0AW00000123ABCDE","transactionLineId":"0QLAW000001XYZABCD","correlationId":"c95246d4-102c-4ecd-a263-f74ac525d1e5","configuratorOptions":{"executePricing":true,"returnProductCatalogData":true,"executeConfigurationRules":true,"addDefaultConfiguration":true,"validateProductCatalog":true,"validateAmendRenewCancel":true,"qualifyAllProductsInTransaction":true},"contextResponseType":"Full","qualificationContext":{"accountId":"001AW00001s9qg4YAA"}}'
+      },
+      {
+        type:'modify',
+        label:'2 — Add a component to an existing context (Quote)',
+        desc:'Add a child QuoteLineItem and its QuoteLineRelationship to an existing configuration context. Use the contextId from the Initiate call as transactionContextId. Path has 2 entries for a line item, 3 entries for its relationship.',
+        steps:[
+          'Replace transactionId with your Quote ID',
+          'Replace transactionContextId with the contextId from the Initiate response',
+          'Replace transactionLineId with the parent bundle QLI ID',
+          'Replace PricebookEntry, ProductSellingModel, Product with real IDs from your org',
+          'Replace ProductRelatedComponent with the 0dS... ID from your product bundle structure',
+          'SalesTransactionItemSource and id must match (use a unique ref_ string)',
+          'SalesTransactionItemParent = the Quote ID (transaction root)'
+        ],
+        body:'{"transactionId":"0Q0AW00000123ABCDE","transactionLineId":"0QLAW000001XYZABCD","transactionContextId":"008d27d7-e004-4906-a949-ee7d7c323c77","correlationId":"c95246d4-102c-4ecd-a263-f74ac525d1e5","configuratorOptions":{"executePricing":true,"returnProductCatalogData":true,"executeConfigurationRules":true,"addDefaultConfiguration":true,"validateProductCatalog":true,"validateAmendRenewCancel":true},"contextResponseType":"Delta","qualificationContext":{"accountId":"001AW00001s9qg4YAA"},"addedNodes":[{"path":["0Q0AW00000123ABCDE","ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589"],"addedObject":{"id":"ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","SalesTransactionItemSource":"ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","SalesTransactionItemParent":"0Q0AW00000123ABCDE","businessObjectType":"QuoteLineItem","PricebookEntry":"01uSa00000650DsIAI","ProductSellingModel":"0jPSa00000007SjMAI","Product":"01tSa00000AzpIXIAZ","Quantity":1,"UnitPrice":33.96}},{"path":["0Q0AW00000123ABCDE","ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","ref_d85b036d_d305_4bb6_aba8_a1dff645a664"],"addedObject":{"id":"ref_d85b036d_d305_4bb6_aba8_a1dff645a664","businessObjectType":"QuoteLineRelationship","MainItem":"0QLAW000001XYZABCD","AssociatedItem":"ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","ProductRelatedComponent":"0dSAW0000000q2T2AQ","ProductRelationshipType":null,"AssociatedItemPricing":"NotIncludedInBundlePrice","AssociatedQuantScaleMethod":"Proportional"}}],"updatedNodes":[],"deletedNodes":[]}'
+      },
+      {
+        type:'modify',
+        label:'3 — Update quantity of an existing line item',
+        desc:'Update the Quantity of an existing QLI already in the context. Only pass updatedAttributes with the fields that changed.',
+        steps:[
+          'Replace transactionId with your Quote ID',
+          'Replace transactionContextId with the contextId from the Initiate response',
+          'Replace the path entry 0QLAW000001XYZABCD with the real QLI ID to update',
+          'Add any other fields to updatedAttributes that need changing (UnitPrice, Description, etc.)'
+        ],
+        body:'{"transactionId":"0Q0AW00000123ABCDE","transactionLineId":"0QLAW000001XYZABCD","transactionContextId":"008d27d7-e004-4906-a949-ee7d7c323c77","correlationId":"c95246d4-102c-4ecd-a263-f74ac525d1e5","configuratorOptions":{"executePricing":true,"executeConfigurationRules":true},"contextResponseType":"Delta","updatedNodes":[{"path":["0Q0AW00000123ABCDE","0QLAW000001XYZABCD"],"updatedAttributes":{"Quantity":5}}],"addedNodes":[],"deletedNodes":[]}'
+      },
+      {
+        type:'order',
+        label:'4 — Add a component to an Order (OrderItem)',
+        desc:'Same structure as the Quote example but businessObjectType is OrderItem and OrderItemRelationship instead of QuoteLineItem and QuoteLineRelationship.',
+        steps:[
+          'Replace transactionId with your Order ID (starts with 801)',
+          'Replace transactionContextId with the contextId from the Initiate response',
+          'Replace PricebookEntry, ProductSellingModel, Product with real IDs',
+          'Note: businessObjectType = OrderItem (not QuoteLineItem)',
+          'Note: relationship businessObjectType = OrderItemRelationship'
+        ],
+        body:'{"transactionId":"801AW00001spT6sYAE","transactionLineId":"802AW00001XYZABCD","transactionContextId":"008d27d7-e004-4906-a949-ee7d7c323c77","correlationId":"c95246d4-102c-4ecd-a263-f74ac525d1e5","configuratorOptions":{"executePricing":true,"returnProductCatalogData":true,"executeConfigurationRules":true,"addDefaultConfiguration":true},"contextResponseType":"Delta","qualificationContext":{"accountId":"001AW00001s9qg4YAA"},"addedNodes":[{"path":["801AW00001spT6sYAE","ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589"],"addedObject":{"id":"ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","SalesTransactionItemSource":"ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","SalesTransactionItemParent":"801AW00001spT6sYAE","businessObjectType":"OrderItem","PricebookEntry":"01uSa00000650DsIAI","ProductSellingModel":"0jPSa00000007SjMAI","Product":"01tSa00000AzpIXIAZ","Quantity":1,"UnitPrice":33.96}},{"path":["801AW00001spT6sYAE","ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","ref_d85b036d_d305_4bb6_aba8_a1dff645a664"],"addedObject":{"id":"ref_d85b036d_d305_4bb6_aba8_a1dff645a664","businessObjectType":"OrderItemRelationship","MainItem":"802AW00001XYZABCD","AssociatedItem":"ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589","ProductRelatedComponent":"0dSAW0000000q2T2AQ","ProductRelationshipType":null,"AssociatedItemPricing":"NotIncludedInBundlePrice","AssociatedQuantScaleMethod":"Proportional"}}],"updatedNodes":[],"deletedNodes":[]}'
+      }
+    ] },
 
   { id:'cfg-2', category:'Configurator', name:'Saved Configuration', methods:['GET','POST'],
     path:'/connect/cpq/configurator/saved-configuration', version:'v63.0',
-    desc:'GET retrieves a list of saved configurations for a record. POST saves a new configuration.',
+    desc:'GET retrieves a list of saved configurations for a record (pass referenceRecordId as query param). POST saves the current configuration of a line item so it can be applied to other quotes/orders later.',
     page:971,
     params:[
-      {name:'referenceRecordId',type:'String',req:true,desc:'(GET) ID of the record whose saved configurations must be retrieved. (POST) ID of the record for which the configuration must be saved.'},
-      {name:'data',type:'String',req:false,desc:'(POST) JSON object that contains the details of the sales transaction, formatted as a string.'},
-      {name:'description',type:'String',req:false,desc:'(POST) Description of the saved configuration.'},
-      {name:'name',type:'String',req:false,desc:'(POST) Name of the saved configuration.'},
+      {name:'referenceRecordId',type:'String',req:true,desc:'(GET query param) ID of the record whose saved configurations must be retrieved. (POST body field) ID of the product record for which the configuration must be saved (starts with 01t).'},
+      {name:'data',type:'String',req:false,desc:'(POST) The sales transaction line item data as a JSON string (URL-encoded). Contains the full QLI object including SalesTransactionItemAttribute array.'},
+      {name:'description',type:'String',req:false,desc:'(POST) Human-readable description of this saved configuration.'},
+      {name:'name',type:'String',req:false,desc:'(POST) Name for this saved configuration.'},
     ],
-    request:'{\n  "data": "{...sales transaction JSON as string...}",\n  "description": "This configuration is saved for reuse.",\n  "name": "Favorite Configuration",\n  "referenceRecordId": "01txx0000006iCFAAY"\n}',
-    response:'{\n  "id": "5KPxx0025063GSmSAX",\n  "name": "Favorite Configuration",\n  "referenceRecordId": "01txx0000006iCFAAY",\n  "description": "This configuration is saved for reuse.",\n  "createdDate": "2024-07-09T10:00:00Z"\n}' },
+    request:'{\n  "data": "{\\"LegalEntity\\":null,\\"ProductName\\":\\"Monitor\\",\\"businessObjectType\\":\\"QuoteLineItem\\",\\"Product\\":\\"01txx0000006i2aAAA\\",\\"Quantity\\":12,\\"UnitPrice\\":144.99,\\"PricebookEntry\\":\\"01uxx0000008yX0AAI\\",\\"ProductSellingModel\\":\\"0jPxx0000000001EAA\\",\\"SalesTransactionItemSource\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemParent\\":\\"0Q0xx0000004C92CAE\\",\\"id\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemAttribute\\":[{\\"AttributeKey\\":\\"0tjxx0000000001AAA\\",\\"AttributeValue\\":\\"1080p Built-in Display\\",\\"ParentReference\\":\\"0QLxx0000004C9VGAU\\",\\"AttributePicklistValue\\":\\"0v6xx0000000001AAA\\",\\"businessObjectType\\":\\"QuoteLineItemAttribute\\",\\"id\\":\\"0zuxx000000000FAAQ\\"}]}",\n  "description": "This configuration is saved for reuse.",\n  "name": "Favorite Configuration",\n  "referenceRecordId": "01txx0000006iCFAAY"\n}',
+    response:'// Success\n{\n  "errors": [],\n  "id": "1Nyxx0000004CNYCA2"\n}\n\n// Error\n{\n  "errors": [{\n    "code": "INTERNAL_SERVER_ERROR",\n    "message": "INVALID_REFERENCEOBJECTID"\n  }]\n}',
+    examples:[
+      {
+        type:'get',
+        label:'1 — GET: List saved configurations for a product',
+        desc:'Retrieve all saved configurations for a given product (by referenceRecordId). Switch the method to GET and pass referenceRecordId as a query parameter.',
+        steps:[
+          'Change method to GET in Try It',
+          'Add referenceRecordId as a query parameter (the product ID starting with 01t)',
+          'Leave the request body empty',
+          'Response is a list of Configuration List items with id, name, description'
+        ],
+        body:''
+      },
+      {
+        type:'post',
+        label:'2 — POST: Save a configuration for reuse',
+        desc:'Save the configuration of an existing QuoteLineItem so it can be applied to other quotes. The data field must be a JSON string (the entire QLI object serialized as a string, not an object).',
+        steps:[
+          'Replace referenceRecordId with the Product2 ID (01t...) of the product being configured',
+          'The data field contains the full QLI object as a serialized JSON string — get this from a prior configure response',
+          'SalesTransactionItemAttribute array inside data should include all attribute key/value pairs',
+          'Response returns id (1Ny...) on success, or errors array on failure'
+        ],
+        body:'{"data":"{\\"LegalEntity\\":null,\\"ProductName\\":\\"Monitor\\",\\"businessObjectType\\":\\"QuoteLineItem\\",\\"Product\\":\\"01txx0000006i2aAAA\\",\\"Quantity\\":12,\\"UnitPrice\\":144.99,\\"PricebookEntry\\":\\"01uxx0000008yX0AAI\\",\\"ProductSellingModel\\":\\"0jPxx0000000001EAA\\",\\"SalesTransactionItemSource\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemParent\\":\\"0Q0xx0000004C92CAE\\",\\"id\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemAttribute\\":[{\\"AttributeKey\\":\\"0tjxx0000000001AAA\\",\\"AttributeValue\\":\\"1080p Built-in Display\\",\\"ParentReference\\":\\"0QLxx0000004C9VGAU\\",\\"AttributePicklistValue\\":\\"0v6xx0000000001AAA\\",\\"businessObjectType\\":\\"QuoteLineItemAttribute\\",\\"id\\":\\"0zuxx000000000FAAQ\\"}]}","description":"This configuration is saved for reuse.","name":"Favorite Configuration","referenceRecordId":"01txx0000006iCFAAY"}'
+      }
+    ] },
 
   { id:'cfg-2b', category:'Configurator', name:'Saved Configuration (DELETE/PUT)', methods:['DELETE','PUT'],
     path:'/connect/cpq/configurator/saved-configuration/{id}', version:'v63.0',
-    desc:'DELETE removes a saved configuration by ID. PUT updates a saved configuration by ID.',
+    desc:'DELETE removes a saved configuration by ID (no request body needed). PUT updates the data, name, and description of an existing saved configuration — all three PUT body fields are required.',
     page:972,
     params:[
-      {name:'id',type:'String',req:true,location:'path',desc:'ID of the saved configuration to update or delete.'},
-      {name:'data',type:'String',req:true,desc:'(PUT) JSON object that contains the updated details of the sales transaction, formatted as a string.'},
-      {name:'description',type:'String',req:true,desc:'(PUT) Description of the configuration.'},
-      {name:'name',type:'String',req:true,desc:'(PUT) Name of the configuration.'},
+      {name:'id',type:'String',req:true,location:'path',desc:'ID of the saved configuration to update or delete (starts with 1Ny — returned from POST /saved-configuration).'},
+      {name:'data',type:'String',req:true,desc:'(PUT, Required) Full QLI object as a serialized JSON string. Same format as POST /saved-configuration — include SalesTransactionItemAttribute array for attributes.'},
+      {name:'description',type:'String',req:true,desc:'(PUT, Required) Description of the configuration.'},
+      {name:'name',type:'String',req:true,desc:'(PUT, Required) Name of the configuration.'},
     ],
-    request:'{\n  "data": "{...sales transaction JSON as string...}",\n  "description": "This configuration is updated.",\n  "name": "Updated Configuration"\n}',
-    response:'{\n  "id": "5KPxx0025063GSmSAX",\n  "name": "Updated Configuration",\n  "description": "This configuration is updated.",\n  "success": true\n}' },
+    request:'{\n  "data": "{\\"LegalEntity\\":null,\\"ProductName\\":\\"Monitor\\",\\"businessObjectType\\":\\"QuoteLineItem\\",\\"Product\\":\\"01txx0000006i2aAAA\\",\\"Quantity\\":12,\\"UnitPrice\\":144.99,\\"PricebookEntry\\":\\"01uxx0000008yX0AAI\\",\\"ProductSellingModel\\":\\"0jPxx0000000001EAA\\",\\"SalesTransactionItemSource\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemParent\\":\\"0Q0xx0000004C92CAE\\",\\"id\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemAttribute\\":[{\\"AttributeKey\\":\\"0tjxx0000000001AAA\\",\\"AttributeValue\\":\\"4K Display\\",\\"ParentReference\\":\\"0QLxx0000004C9VGAU\\",\\"AttributePicklistValue\\":\\"0v6xx0000000002AAA\\",\\"businessObjectType\\":\\"QuoteLineItemAttribute\\",\\"id\\":\\"0zuxx000000000FAAQ\\"}]}",\n  "description": "This configuration is updated.",\n  "name": "Updated Configuration"\n}',
+    response:'// Success\n{\n  "errors": [],\n  "success": true\n}\n\n// Error\n{\n  "errors": [{\n    "code": "INTERNAL_SERVER_ERROR",\n    "message": "INVALID_REFERENCEOBJECTID"\n  }],\n  "success": false\n}',
+    examples:[
+      {
+        type:'delete',
+        label:'1 — DELETE: Remove a saved configuration',
+        desc:'Delete a saved configuration by its ID (1Ny...). No request body needed — just set the path parameter and switch the method to DELETE.',
+        steps:[
+          'Change method to DELETE in Try It',
+          'Set the {id} path parameter to the saved configuration ID (1Ny...)',
+          'Leave the request body empty',
+          'Response is empty (204 No Content) on success'
+        ],
+        body:''
+      },
+      {
+        type:'put',
+        label:'2 — PUT: Update name, description, or data of a saved configuration',
+        desc:'Update an existing saved configuration. All three fields (data, description, name) are required. The data field must be the full QLI as a serialized JSON string.',
+        steps:[
+          'Change method to PUT in Try It',
+          'Set the {id} path parameter to the saved configuration ID (1Ny...)',
+          'Replace data with the updated QLI JSON string — include the full object even if only changing attributes',
+          'Response: { "errors": [], "success": true } on success'
+        ],
+        body:'{"data":"{\\"LegalEntity\\":null,\\"ProductName\\":\\"Monitor\\",\\"businessObjectType\\":\\"QuoteLineItem\\",\\"Product\\":\\"01txx0000006i2aAAA\\",\\"Quantity\\":12,\\"UnitPrice\\":144.99,\\"PricebookEntry\\":\\"01uxx0000008yX0AAI\\",\\"ProductSellingModel\\":\\"0jPxx0000000001EAA\\",\\"SalesTransactionItemSource\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemParent\\":\\"0Q0xx0000004C92CAE\\",\\"id\\":\\"0QLxx0000004C9VGAU\\",\\"SalesTransactionItemAttribute\\":[{\\"AttributeKey\\":\\"0tjxx0000000001AAA\\",\\"AttributeValue\\":\\"4K Display\\",\\"ParentReference\\":\\"0QLxx0000004C9VGAU\\",\\"AttributePicklistValue\\":\\"0v6xx0000000002AAA\\",\\"businessObjectType\\":\\"QuoteLineItemAttribute\\",\\"id\\":\\"0zuxx000000000FAAQ\\"}]}","description":"This configuration is updated.","name":"Updated Configuration"}'
+      }
+    ] },
 
   { id:'cfg-3', category:'Configurator', name:'Configurator Add Nodes', methods:['POST'],
     path:'/connect/cpq/configurator/actions/add-nodes', version:'v60.0',
-    desc:'Add a node to the context through the runtime system without using the Salesforce user interface.',
+    desc:'Add one or more nodes (line items, relationships) to an existing configuration context without using the Salesforce UI. Use after load-instance to build out the bundle structure programmatically.',
     page:975,
     params:[
-      {name:'contextId',type:'String',req:true,desc:'ID of the context object that\'s being considered.'},
-      {name:'addedNodes',type:'Configurator Added Node Input[]',req:true,desc:'List of nodes to add. Each node has: path (String[]) — path to the node including the unique ID matching the sales transaction item source; addedObject (Map<String,Object>) — fields of the object being added. Path rules: QuoteLineItem → 2 IDs [quoteId, qliId] + must include SalesTransactionItemSource and SalesTransactionItemParent. QuoteLineRelationship → 3 IDs [quoteId, qliId, relationshipId]. OrderItem → 2 IDs [orderId, orderItemId]. OrderItemRelationship → 3 IDs.'},
-      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options object with: addDefaultConfiguration (Boolean), executeConfigurationRules (Boolean), executePricing (Boolean), explainabilityEnabled (Boolean, v66.0 — collect solver metadata for Action Logs API), pricingProcedure (String — pricing procedure name), qualifyAllProductsInTransaction (Boolean), returnProductCatalogData (Boolean — set false when not using Product Configurator UI), validateAmendRenewCancel (Boolean), validateProductCatalog (Boolean).'},
-      {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context for qualification rules: accountId (String), contactId (String), contextId (String — ID of the created session).'},
+      {name:'contextId',type:'String',req:true,desc:'ID of the context object to add nodes into (returned from load-instance or configure).'},
+      {name:'addedNodes',type:'Configurator Added Node Input[]',req:true,desc:'Nodes to add. Each has path (String[]) and addedObject (Map<String,Object>). Path rules: QuoteLineItem → 2 IDs [quoteId, qliRef]. QuoteLineRelationship → 3 IDs [quoteId, qliRef, relationshipRef]. OrderItem → 2 IDs. OrderItemRelationship → 3 IDs. addedObject must include id, SalesTransactionItemSource (= id), SalesTransactionItemParent (= transactionId), businessObjectType, PricebookEntry, ProductSellingModel, Product, Quantity, UnitPrice. Relationship addedObject: id, MainItem (parent QLI ID), AssociatedItem (child ref_), ProductRelatedComponent, AssociatedItemPricing, AssociatedQuantScaleMethod, businessObjectType.'},
+      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options: addDefaultConfiguration, executeConfigurationRules, executePricing, explainabilityEnabled (Boolean v66 — collect solver logs), pricingProcedure (String), qualifyAllProductsInTransaction, returnProductCatalogData (set false when not using Configurator UI), validateAmendRenewCancel, validateProductCatalog.'},
+      {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
-    request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "addedNodes": [\n    {\n      "path": ["0Q0xx0000004EvcCAE", "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589"],\n      "addedObject": {\n        "id": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "SalesTransactionItemSource": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "SalesTransactionItemParent": "0Q0xx0000004EvcCAE",\n        "PricebookEntry": "01uxx00000090VuAAI",\n        "ProductSellingModel": "0jPxx00000001KHEAY",\n        "UnitPrice": 15.26,\n        "Quantity": 1,\n        "Product": "01txx0000006lfHAAQ",\n        "businessObjectType": "QuoteLineItem"\n      }\n    }\n  ]\n}',
-    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "success": true,\n  "errors": [],\n  "productQualifications": {},\n  "configuratorMessages": {}\n}' },
+    request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "addedNodes": [\n    {\n      "path": ["0Q0xx0000004EvcCAE", "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589"],\n      "addedObject": {\n        "id": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "SalesTransactionItemSource": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "SalesTransactionItemParent": "0Q0xx0000004EvcCAE",\n        "PricebookEntry": "01uxx00000090VuAAI",\n        "ProductSellingModel": "0jPxx00000001KHEAY",\n        "UnitPrice": 15.26,\n        "Quantity": 1,\n        "Product": "01txx0000006lfHAAQ",\n        "businessObjectType": "QuoteLineItem"\n      }\n    },\n    {\n      "path": ["0Q0xx0000004EvcCAE", "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589", "ref_d85b036d_d305_4bb6_aba8_a1dff645a664"],\n      "addedObject": {\n        "id": "ref_d85b036d_d305_4bb6_aba8_a1dff645a664",\n        "MainItem": "0QLxx0000004QdRGAU",\n        "AssociatedItem": "ref_d3a3f8d2_e031_4517_ae28_69ce16cb6589",\n        "ProductRelatedComponent": "0dSxx00000001p6EAA",\n        "ProductRelationshipType": null,\n        "AssociatedItemPricing": "NotIncludedInBundlePrice",\n        "AssociatedQuantScaleMethod": "Proportional",\n        "businessObjectType": "QuoteLineRelationship"\n      }\n    }\n  ]\n}',
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
 
   { id:'cfg-4', category:'Configurator', name:'Config Rules Execute', methods:['POST'],
     path:'/revenue/product-configurator/rules/actions/execute', version:'v67.0',
-    desc:'Run rules for a specific quote or order based on a context ID or transaction ID.',
+    desc:'Run configuration rules for a quote or order. Returns message rules (validation/warning/info), product recommendation rules, visibility rules (hide/disable), and a transactionContextId. Pass either transactionContextId or transactionId — one is required.',
     page:978,
     params:[
       {name:'transactionContextId',type:'String',req:false,desc:'ID of the sales transaction context instance. Required if transactionId is not specified.'},
       {name:'transactionId',type:'String',req:false,desc:'ID of the quote or order. Required if transactionContextId is not specified.'},
-      {name:'ruleOptions',type:'Config Rule Options Input',req:false,desc:'Details of the options to run specific steps in rules. isUpdateContextRequired: whether context update is required (default true). Set to false if Place Sales Transaction is invoked with configuration enabled.'},
+      {name:'ruleOptions',type:'Config Rule Options Input',req:false,desc:'isUpdateContextRequired (Boolean, default true) — whether to automatically add or delete products and components as part of context update. Set to false if Place Sales Transaction API is invoked with configuration enabled, to avoid redundant context logic execution.'},
     ],
     request:'{\n  "transactionContextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "transactionId": "0Q0DU0000005tJh0AI",\n  "ruleOptions": {\n    "isUpdateContextRequired": false\n  }\n}',
-    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {"attributeId": "0tjxx0000000007AAA", "stiId": "0QLxx0000004CU0GAM"},\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {"01tDU000000EOTCYA4": {"isQualified": true}},\n  "success": true\n}' },
+    response:'{\n  "errors": [],\n  "messageRules": [\n    {\n      "message": "You have a 128GB LRDIMM QLI",\n      "messageType": "error",\n      "primaryRecordId": "0Q0VW000000z8yN0AQ"\n    },\n    {\n      "message": "You have a 16GB RDIMM QLI",\n      "messageType": "warning",\n      "primaryRecordId": "0Q0VW000000z8yN0AQ"\n    },\n    {\n      "message": "You have a 32GB RDIMM QLI",\n      "messageType": "info",\n      "primaryRecordId": "0Q0VW000000z8yN0AQ"\n    }\n  ],\n  "productRecommendationRules": [\n    {\n      "message": "32GB RDIMM recommends 16GB RDIMM",\n      "productIds": ["01tVW000003l7uaYAA"],\n      "recordType": "Type",\n      "referenceId": "0Q0VW000000z8yN0AQ"\n    }\n  ],\n  "success": true,\n  "transactionContextId": "0000000r25tq18g00291775730228818e689c3c5756e409fb3f886f68937ab13",\n  "visibilityRules": [\n    {\n      "message": "128GB LRDIMM disables 16GB RDIMM",\n      "productIds": ["01tVW000003l7uaYAA"],\n      "scope": "virtual",\n      "target": "product",\n      "type": "disable"\n    },\n    {\n      "message": "Disable All other API Products",\n      "productIds": ["01tVW000003l7u0YAA", "01tVW000003l7u1YAA"],\n      "scope": "virtual",\n      "target": "product",\n      "type": "disable"\n    }\n  ]\n}' },
 
   // Transaction Management
   { id:'txn-1', category:'Transaction', name:'Asset Amendment', methods:['POST'],
@@ -1286,25 +1401,25 @@ export const ENDPOINTS: Endpoint[] = [
     page:955,
     params:[
       {name:'transactionId',type:'String',req:true,desc:'Transaction ID of the header entity that\'s used to create a session. For example, a Quote or an Order.'},
-      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'List of the configurator options to execute (addDefaultConfiguration, executeConfigurationRules, executePricing, qualifyAllProductsInTransaction, validateAmendRenewCancel, validateProductCatalog).'},
+      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options controlling what the configurator executes. addDefaultConfiguration (Boolean v60), executeConfigurationRules (Boolean v60), executePricing (Boolean v60), explainabilityEnabled (Boolean v66 — collect solver explainability logs for Action Logs API), pricingProcedure (String v60 — pricing procedure name), qualifyAllProductsInTransaction (Boolean v60), returnProductCatalogData (Boolean v60 — set false when not using Product Configurator UI), validateAmendRenewCancel (Boolean v60), validateProductCatalog (Boolean v60).'},
       {name:'contextMappingId',type:'String',req:false,desc:'ID of the context mapping record.'},
-      {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context details that are used for the qualification rules.'},
+      {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules. accountId (String v60) — account ID. contactId (String v60) — contact ID. contextId (String v60) — ID of an existing session context.'},
     ],
     request:'{\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateAmendRenewCancel": true,\n    "validateProductCatalog": true\n  },\n  "qualificationContext": {\n    "accountId": "001DU000001nHUGYA2"\n  },\n  "transactionId": "0Q0DU0000000XoN0AU"\n}',
     response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "status": "InProgress"\n}' },
 
   { id:'cfg-6', category:'Configurator', name:'Configuration Set Instance', methods:['POST'],
     path:'/connect/cpq/configurator/actions/set-instance', version:'v60.0',
-    desc:'Set a product configuration instance. Used when the configuration instance is available in a different database than Salesforce and the product catalog management data is in Salesforce.',
+    desc:'Set a product configuration instance. Use this when the configuration instance lives in an external database (not Salesforce) and the product catalog data is in Salesforce. contextMappingId and transaction are both required.',
     page:955,
     params:[
-      {name:'contextMappingId',type:'String',req:true,desc:'ID of the context mapping record.'},
-      {name:'transaction',type:'String',req:true,desc:'Transaction JSON payload representing an object in an external system that\'s used to create a session.'},
-      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'List of the configurator options to execute.'},
-      {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context details that are used for the qualification rules.'},
+      {name:'contextMappingId',type:'String',req:true,desc:'ID of the context mapping record that maps the external transaction structure to the Salesforce context definition.'},
+      {name:'transaction',type:'String',req:true,desc:'Transaction JSON payload (serialized as a string) representing the external system object used to create a session. Must include businessObjectType and id for each node (Quote, QuoteLineItem, etc.).'},
+      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options: addDefaultConfiguration, executeConfigurationRules, executePricing, explainabilityEnabled (Boolean v66), pricingProcedure (String), qualifyAllProductsInTransaction, returnProductCatalogData (set false when not using Configurator UI), validateAmendRenewCancel, validateProductCatalog.'},
+      {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
-    request:'{\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": false,\n    "qualifyAllProductsInTransaction": false,\n    "validateAmendRenewCancel": false,\n    "validateProductCatalog": false\n  },\n  "contextMappingId": "11jEk000017YdyUIAS",\n  "qualificationContext": {\n    "accountId": "001DU000001nHUGYA2"\n  },\n  "transaction": "{\\"Quote\\":[{\\"QuoteLineItem\\":[{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_1\\"}],\\"businessObjectType\\":\\"Quote\\",\\"id\\":\\"aJSdm0000003m3JGAQ\\"}]}"\n}',
-    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "status": "InProgress"\n}' },
+    request:'{\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": false,\n    "qualifyAllProductsInTransaction": false,\n    "validateAmendRenewCancel": false,\n    "validateProductCatalog": false\n  },\n  "contextMappingId": "11jEk000017YdyUIAS",\n  "qualificationContext": {\n    "accountId": "001DU000001nHUGYA2"\n  },\n  "transaction": "{\\"Quote\\":[{\\"QuoteLineItem\\":[{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_1\\"},{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_2\\"},{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_3\\"},{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_4\\"}],\\"businessObjectType\\":\\"Quote\\",\\"id\\":\\"aJSdm0000003m3JGAQ\\"}]}"\n}',
+    response:'// Response body for Configuration Set Instance\n// See Configuration Set Instance output type.\n// Returns contextId of the created session on success.\n{\n  "errors": [],\n  "success": true,\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77"\n}' },
 
   { id:'cfg-7', category:'Configurator', name:'Configurator Delete Nodes', methods:['POST'],
     path:'/connect/cpq/configurator/actions/delete-nodes', version:'v60.0',
@@ -1317,20 +1432,20 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context for qualification rules: accountId (String), contactId (String), contextId (String).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "deletedNodes": [\n    {\n      "path": ["0Q0DE000000ISHJs81", "0QLDE000000IBXw4AO"]\n    }\n  ]\n}',
-    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "success": true,\n  "errors": []\n}' },
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
 
   { id:'cfg-8', category:'Configurator', name:'Configurator Update Nodes', methods:['POST'],
     path:'/connect/cpq/configurator/actions/update-nodes', version:'v60.0',
-    desc:'Update nodes in a product configuration.',
+    desc:'Update one or more nodes in a product configuration context. Use updatedAttributes to change any field on a Sales Transaction context item — Quantity, UnitPrice, custom fields, etc.',
     page:955,
     params:[
-      {name:'contextId',type:'String',req:true,desc:'ID of the context object that\'s being considered.'},
-      {name:'updatedNodes',type:'Configurator Updated Node Input[]',req:true,desc:'List of nodes to update. Each node has path (String[]) — path to the node being updated; and updatedAttributes (Map<String,Object>) — fields to update, supports all Sales Transaction context definition fields including custom fields.'},
-      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options: addDefaultConfiguration, executeConfigurationRules, executePricing, explainabilityEnabled (v66.0), pricingProcedure, qualifyAllProductsInTransaction, returnProductCatalogData, validateAmendRenewCancel, validateProductCatalog.'},
-      {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context for qualification rules: accountId (String), contactId (String), contextId (String).'},
+      {name:'contextId',type:'String',req:true,desc:'ID of the context object to update nodes in (returned from load-instance or configure).'},
+      {name:'updatedNodes',type:'Configurator Updated Node Input[]',req:true,desc:'Nodes to update. Each has: path (String[]) — same 2-ID path structure as add-nodes (e.g. [quoteId, qliId]); updatedAttributes (Map<String,Object>) — fields to update; supports all Sales Transaction context definition fields including custom fields.'},
+      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options: addDefaultConfiguration, executeConfigurationRules, executePricing, explainabilityEnabled (Boolean v66 — solver logs), pricingProcedure (String), qualifyAllProductsInTransaction, returnProductCatalogData (false when not using Configurator UI), validateAmendRenewCancel, validateProductCatalog.'},
+      {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "updatedNodes": [\n    {\n      "path": ["0Q0DE000000ISHJs81", "0QLDE000000IBXw4AO"],\n      "updatedAttributes": {\n        "Quantity": 5\n      }\n    }\n  ]\n}',
-    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "success": true,\n  "errors": []\n}' },
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
 
   { id:'cfg-9', category:'Configurator', name:'Configuration Save Instance', methods:['POST'],
     path:'/connect/cpq/configurator/actions/save-instance', version:'v60.0',
@@ -1340,17 +1455,17 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'contextId',type:'String',req:true,desc:'Transaction context ID of the product configuration instance that\'s to be saved.'},
     ],
     request:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77"\n}',
-    response:'{\n  "id": "{{CONFIG_INSTANCE_ID}}",\n  "success": true\n}' },
+    response:'// Success\n{\n  "errors": [],\n  "success": true\n}\n\n// Error\n{\n  "errors": [{\n    "code": "INTERNAL_SERVER_ERROR",\n    "message": "CONTEXT_NOT_FOUND"\n  }],\n  "success": false\n}' },
 
   { id:'cfg-10', category:'Configurator', name:'Configuration Get Instance', methods:['POST'],
     path:'/connect/cpq/configurator/actions/get-instance', version:'v60.0',
-    desc:'Fetch the JSON representation of a product configuration. Use the response to display configuration details on the Salesforce UI or save to an external system.',
+    desc:'Fetch the full JSON representation of a product configuration instance by contextId. Use the response to display configuration details on the Salesforce UI or to save the instance to an external system.',
     page:955,
     params:[
-      {name:'contextId',type:'String',req:true,desc:'Transaction context ID of the product configuration instance that\'s to be fetched.'},
+      {name:'contextId',type:'String',req:true,desc:'Transaction context ID of the product configuration instance to fetch. Returned from a prior configure or load-instance call.'},
     ],
     request:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77"\n}',
-    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "transactionId": "0Q0DU0000000XoN0AU",\n  "status": "InProgress",\n  "configurationNodes": []\n}' },
+    response:'// Success\n{\n  "errors": [],\n  "success": true,\n  "transaction": {\n    "id": "0Q0DU0000000XoN0AU",\n    "salesTransactionItems": [\n      {\n        "id": "0QLDU000000XYZABCD",\n        "businessObjectType": "QuoteLineItem",\n        "Product": "01txx0000006i2aAAA",\n        "Quantity": 12,\n        "UnitPrice": 144.99,\n        "SalesTransactionItemAttribute": [\n          {\n            "id": "0zuxx000000000FAAQ",\n            "AttributeKey": "0tjxx0000000001AAA",\n            "AttributeValue": "1080p Built-in Display",\n            "businessObjectType": "QuoteLineItemAttribute"\n          }\n        ]\n      }\n    ]\n  }\n}' },
 
   { id:'cfg-11', category:'Configurator', name:'Product Set Quantity', methods:['POST'],
     path:'/connect/cpq/configurator/actions/set-product-quantity', version:'v60.0',
@@ -1360,11 +1475,22 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'contextId',type:'String',req:true,desc:'ID of the context object that\'s being considered.'},
       {name:'quantity',type:'Integer',req:true,desc:'Value of the product quantity.'},
       {name:'transactionLinePath',type:'String[]',req:true,desc:'Path to the line item where the update to the quantity is applied. For example, Quote.QuoteLineItem.Quantity.'},
-      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'List of the configuration options to execute.'},
-      {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context details that are used for the qualification rules.'},
+      {name:'configuratorOptions',type:'Configurator Options Input',req:false,desc:'Options: addDefaultConfiguration, executeConfigurationRules, executePricing, explainabilityEnabled (Boolean v66 — solver logs), pricingProcedure (String), qualifyAllProductsInTransaction, returnProductCatalogData (false when not using Configurator UI), validateAmendRenewCancel, validateProductCatalog.'},
+      {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "quantity": 20,\n  "transactionLinePath": "Quote.QuoteLineItem.Quantity"\n}',
-    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [],\n  "errors": [],\n  "productQualifications": {"01tDU000000EOTCYA4": {"isQualified": true}},\n  "success": true\n}' },
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
+
+  { id:'cfg-12', category:'Configurator', name:'Run Config Rules (Invocable)', methods:['POST'],
+    path:'/services/data/v67.0/actions/standard/runConfigRules', version:'v65.0',
+    desc:'Invocable action that runs configuration rules for a quote or order. Decouples rule execution from configuration so rules can be run independently or from a Flow. Returns visibilityRules, messageRules, productRecommendationRules, and a transactionContextId. Available from v65.0.',
+    page:979,
+    params:[
+      {name:'transactionContextId',type:'String',req:false,desc:'Unique identifier for the transaction context. Pass this or transactionId.'},
+      {name:'transactionId',type:'String',req:true,desc:'Unique identifier for the transaction (quote or order ID). Required.'},
+    ],
+    request:'{\n  "inputs": [\n    {\n      "transactionContextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n      "transactionId": "0Q0DU0000005tJh0AI"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "runConfigRules",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "transactionContextId": "0000000p18dq18g0029175793402786243c3d5ea94c241f09c11388ac1b865f9",\n      "configRuleResult": {\n        "visibilityRules": [\n          {\n            "stiId": "0QLxx0000004CU0GAM",\n            "prcId": "PRC1",\n            "attributeId": "Color",\n            "attributePicklistValueId": "Red",\n            "target": "Attribute",\n            "scope": "Product",\n            "type": "Hide"\n          }\n        ],\n        "transactionContextId": "0000000p18dq18g0029175793402786243c3d5ea94c241f09c11388ac1b865f9",\n        "productRecommendationRules": [\n          {\n            "referenceId": "CORE_BUNDLE_001",\n            "productIds": ["01t000000001234", "01t000000005678"]\n          }\n        ],\n        "messageRules": [\n          {\n            "stiId": "0QLxx0000004CU0GAM",\n            "severity": "INFO",\n            "messages": ["Product configuration validated successfully"]\n          }\n        ],\n        "errors": []\n      }\n    }\n  }\n]' },
 
   // DRO — Dynamic Revenue Orchestrator (entirely new category)
   { id:'dro-1', category:'DRO', name:'Decompose Sales Transaction', methods:['POST'],

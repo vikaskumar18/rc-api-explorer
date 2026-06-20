@@ -7,6 +7,16 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ---
 
+## What's New in v1.2.0
+
+- **⚙ Configurator Session Builder** — visual tool to manage the stateful configurator lifecycle (load-instance → add/update/delete nodes → run rules → save-instance); `contextId` auto-saved to `CFG_CONTEXT_ID` env var for use across tabs
+- **13 Configurator endpoints** fully documented (cfg-1 through cfg-12) with corrected request/response bodies, all 9 `configuratorOptions` fields, and clickable examples
+- **Configurator Session Flow playbook** — 4-step built-in playbook in the Playbooks rail
+- **Amber lifecycle banner** on all stateful configurator endpoints linking directly to the builder
+- **cfg-12** — new endpoint: Run Config Rules invocable action (`POST /actions/standard/runConfigRules`, v65.0+)
+
+---
+
 ## What's New in v1.1.0
 
 - **Postman Import** — import any Postman Collection v2.1 from a local file, a URL, or the built-in catalog

@@ -7,6 +7,16 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ---
 
+## What's New in v1.3.0
+
+- **Full endpoint audit** — all 166+ endpoints verified against official Salesforce Revenue Cloud docs across all 9 categories
+- **60+ bug fixes** — corrected wrong paths, action names, param names, and response shapes (disc-4, cfg-4, txn-10/11, bill-6, bill-act-3/4/5/6, usage-11, price-1/4/5, and more)
+- **Doc-verified response shapes** — Guided Selection (`result[]`), Invoice Creation async (`requestIdentifier`), DRO invocable action arrays, and billing async responses all match the official spec
+- **Examples added** to 15+ endpoints: disc-1 (3 search patterns), disc-6 (5 nested filter scenarios), disc-11, txn-9 (6 PST scenarios: create quote, bundle, add, update qty, delete line, order), bill-1 (3 invoice triggers), bill-8 (3 tax scenarios), cfg-5 through cfg-11 (full configurator flow), price-6 (GroupBy/GroupAll/MoveGroup)
+- **Param fixes** — missing params added (disc-8 correlationId, price-8 effectiveTo/readContextMapping/saveContextMapping, pcm-7 catalogSystems clarified to epc-only)
+
+---
+
 ## What's New in v1.2.0
 
 - **⚙ Configurator Session Builder** — visual tool to manage the stateful configurator lifecycle (load-instance → add/update/delete nodes → run rules → save-instance); `contextId` auto-saved to `CFG_CONTEXT_ID` env var for use across tabs
@@ -425,8 +435,8 @@ Environment variable sets are stored in VS Code's extension storage (persisted a
 ```bash
 cd rc-api-explorer-extension
 npm install
-npm run package        # builds + packages → rc-api-explorer-1.1.0.vsix
-code --install-extension rc-api-explorer-1.1.0.vsix
+npm run package        # builds + packages → rc-api-explorer-1.3.0.vsix
+code --install-extension rc-api-explorer-1.3.0.vsix
 ```
 
 For development with live rebuild:

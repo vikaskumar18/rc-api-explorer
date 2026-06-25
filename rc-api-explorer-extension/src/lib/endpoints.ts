@@ -117,7 +117,7 @@ export const ENDPOINTS: Endpoint[] = [
     params:[
       {name:'mainObjectApiName',type:'String',req:true,desc:'API name of the primary object to clone (e.g. "Product2").'},
       {name:'mainRecordId',type:'String',req:true,desc:'ID of the record to clone.'},
-      {name:'mainRecordFieldValues',type:'Object',req:false,desc:'Map of field API name to value to set on the cloned record (e.g. {"Name": "Cloned Product"}).'},
+      {name:'mainRecordFieldValues',type:'Map<String,String>',req:false,desc:'Map of field API name to string value on the cloned record. Only the Name field is supported (e.g. {"Name": "Cloned Product"}).'},
     ],
     request:'{\n  "mainObjectApiName": "Product2",\n  "mainRecordId": "{{PRODUCT_ID}}",\n  "mainRecordFieldValues": {\n    "Name": "Cloned Product"\n  }\n}',
     response:'{\n  "createdRecordList": [{"id": "01txx0000000003AAA","objectApiName": "Product2"}],\n  "errorList": [],\n  "isSuccessful": true\n}' },
@@ -128,14 +128,14 @@ export const ENDPOINTS: Endpoint[] = [
     page:141,
     params:[
       {name:'productClassificationIds',type:'String[]',req:true,desc:'List of product classification IDs. In epc catalog these are Product2 record IDs.'},
-      {name:'catalogSystems',type:'String[]',req:false,desc:'Catalog system filter. Valid value: epc (Enterprise Product Catalog).'},
+      {name:'catalogSystems',type:'String[]',req:false,desc:'Catalog system filter. Valid value: "epc" (Enterprise Product Catalog) only. Unlike the Bulk Product Details API, "pcm" is not valid here.'},
     ],
-    request:'{\n  "productClassificationIds": [\n    "{{PRODUCT_CLASSIFICATION_ID}}"\n  ],\n  "catalogSystems": [\n    "pcm"\n  ]\n}',
+    request:'{\n  "productClassificationIds": [\n    "{{PRODUCT_CLASSIFICATION_ID}}"\n  ],\n  "catalogSystems": [\n    "epc"\n  ]\n}',
     response:'{\n  "productClassifications": [\n    {\n      "id": "11BAU00000EUCaw2AH",\n      "name": "Commercial",\n      "catalogSystem": "pcm",\n      "attributeCategories": [\n        {\n          "name": "Subscription Details",\n          "attributes": [\n            {"name": "Subscription Term","dataType": "Picklist","isRequired": true},\n            {"name": "Vehicle Type","dataType": "Picklist","isRequired": true}\n          ]\n        }\n      ]\n    }\n  ],\n  "success": true\n}' },
 
   { id:'pcm-8', category:'PCM', name:'Product Classification List', methods:['POST'],
     path:'/revenue/product-catalog-management/product-classifications/list', version:'v67.0',
-    desc:'Retrieve a paginated list of product classification records. Can search, filter, and sort. POST is used to retrieve.',
+    desc:'[Preview/unverified path] Retrieve a paginated list of product classification records. Can search, filter, and sort. POST is used to retrieve.',
     page:142,
     params:[
       {name:'catalogSystem',type:'String',req:false,desc:'Catalog system: pcm (default) or epc.'},
@@ -166,7 +166,7 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Retrieve the created snapshots and snapshot indexes.',
     page:151,
     params:[
-      {name:'numberOfIndexLogs',type:'Integer',req:false,desc:'Number of index logs to include in the response (0–100). Default 25.'},
+      {name:'numberOfIndexLogs',type:'Integer',req:false,desc:'Number of index logs to include in the response (0–100). Default 25. Available from v63.0.'},
     ],
     request:'No request body.',
     response:'{\n  "errors": [],\n  "snapshots": [\n    {\n      "id": "1AvAP000000FHer0AG",\n      "activationType": "IMMEDIATE",\n      "snapshotIndexes": []\n    }\n  ],\n  "statusCode": "200"\n}' },
@@ -187,8 +187,8 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Get the count and details of errors that occurred during the indexing process.',
     page:152,
     params:[
-      {name:'indexId',type:'String',req:true,desc:'ID of the index (starts with 0ax).'},
-      {name:'snapshotIndexId',type:'String',req:true,desc:'ID of the snapshot index (starts with 1D6).'},
+      {name:'indexId',type:'String',req:true,location:'query',desc:'ID of the index (starts with 0ax).'},
+      {name:'snapshotIndexId',type:'String',req:true,location:'query',desc:'ID of the snapshot index (starts with 1D6).'},
     ],
     request:'No request body.',
     response:'{\n  "errorCount": 0,\n  "errors": []\n}' },
@@ -198,8 +198,8 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Get details about the unit of measure for a specific set of records.',
     page:153,
     params:[
-      {name:'ids',type:'String',req:false,desc:'IDs of the unit of measure records (comma-separated).'},
-      {name:'correlationId',type:'String',req:false,desc:'Unique tracking token.'},
+      {name:'ids',type:'String',req:false,location:'query',desc:'IDs of the unit of measure records (comma-separated).'},
+      {name:'correlationId',type:'String',req:false,location:'query',desc:'Unique tracking token.'},
     ],
     request:'No request body.',
     response:'{\n  "correlationId": "uom-info-001",\n  "uomIdToUnitOfMeasureInfo": {\n    "0hExx0000000001EAA": {\n      "id": "0hExx0000000001EAA",\n      "name": "Each",\n      "symbol": "ea",\n      "decimalPlaces": 0,\n      "roundingMode": "HalfUp"\n    }\n  },\n  "status": {"code": "200"}\n}' },
@@ -223,6 +223,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'catalogId',type:'String',req:true,location:'path',desc:'ID of the catalog.'},
       {name:'correlationId',type:'String',req:false,location:'query',desc:'(v60.0) Unique token to track related events. If unspecified, a UUID is generated.'},
       {name:'depth',type:'Integer',req:false,location:'query',desc:'(v60.0) Number of levels in the category hierarchy to return. Default: 1.'},
+      {name:'fields',type:'String[]',req:false,location:'query',desc:'(v60.0) List of fields to return in each category. If not specified, all fields are returned.'},
       {name:'language',type:'String',req:false,location:'query',desc:'(v64.0) Custom language to retrieve translated field data.'},
       {name:'parentCategoryId',type:'String',req:false,location:'query',desc:'(v60.0) ID of the category to fetch its subcategory hierarchy. If unspecified, root-level categories are returned.'},
     ],
@@ -236,6 +237,7 @@ export const ENDPOINTS: Endpoint[] = [
     params:[
       {name:'categoryId',type:'String',req:true,location:'path',desc:'ID of the category.'},
       {name:'correlationId',type:'String',req:false,location:'query',desc:'(v60.0) Unique token to track related events. If unspecified, a UUID is generated.'},
+      {name:'fields',type:'String[]',req:false,location:'query',desc:'(v60.0) List of fields to return. If not specified, all fields are returned.'},
       {name:'language',type:'String',req:false,location:'query',desc:'(v64.0) Custom language to retrieve translated field data.'},
     ],
     request:'No request body. Category ID is a path param.',
@@ -271,7 +273,7 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Retrieves a list of products based on a search query or search term. Composite API for Product Discovery.',
     page:312,
     params:[
-      {name:'query',type:'Map<String,Object>',req:true,location:'body',desc:'(v60.0) Query to search products. Required.'},
+      {name:'query',type:'Map<String,Object>',req:true,location:'body',desc:'(v60.0) Query to search products. Required. Structure: { "textQuery": { "searchPhrase": "Bundle" } }. The textQuery.searchPhrase performs a full-text product name search.'},
       {name:'additionalContextData',type:'Context Data Input[]',req:false,location:'body',desc:'(v60.0) Additional custom context nodes. Maximum supported is 10.'},
       {name:'additionalFields',type:'Map<String,Additional Fields Input>',req:false,location:'body',desc:'(v61.0) Additional Product2 fields to return.'},
       {name:'catalogId',type:'String',req:false,location:'body',desc:'(v60.0) Catalog ID with pricing details.'},
@@ -300,8 +302,42 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions.'},
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "query": {},\n  "searchTerm": "Bundle",\n  "catalogId": "{{CATALOG_ID}}",\n  "limit": 10,\n  "enablePricing": false,\n  "enableQualification": false\n}',
-    response:'{\n  "correlationId": "search-001",\n  "facets": [],\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "catalogs": [{"id": "0ZSAU000000ANZd4AO","name": "CAR and LCV"}],\n      "categories": [{"id": "0ZGAU000000BC2h4AG","name": "Configurable"}],\n      "productSellingModelOptions": [{"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen"}}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched Product records."}\n}' },
+    request:'{\n  "query": {\n    "textQuery": {\n      "searchPhrase": "Bundle"\n    }\n  },\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "currencyCode": "USD",\n  "limit": 20,\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  },\n  "additionalFields": {\n    "Product2": {\n      "fields": ["ProductCode","Description"]\n    }\n  }\n}',
+    response:'{\n  "correlationId": "search-001",\n  "facets": [],\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "catalogs": [{"id": "0ZSAU000000ANZd4AO","name": "CAR and LCV"}],\n      "categories": [{"id": "0ZGAU000000BC2h4AG","name": "Configurable"}],\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n      "productSellingModelOptions": [{"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen"}}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched Product records."}\n}',
+    examples:[
+      {
+        type:'text-search',
+        label:'1 — Text search by keyword',
+        desc:'Full-text search using query.textQuery.searchPhrase. Returns products whose name contains the phrase. Add priceBookId and enablePricing to get prices.',
+        steps:[
+          'Set query.textQuery.searchPhrase to a product name keyword',
+          'Add catalogId to scope to a specific catalog',
+          'Set enablePricing:true and priceBookId to include prices in the response'
+        ],
+        body:'{"query":{"textQuery":{"searchPhrase":"Bundle"}},"catalogId":"{{CATALOG_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":20,"enablePricing":true,"enableQualification":true}'
+      },
+      {
+        type:'search-term',
+        label:'2 — searchTerm shorthand (v62.0+)',
+        desc:'Alternative to query.textQuery: use the top-level searchTerm field (available from v62.0). Equivalent to textQuery but simpler to construct.',
+        steps:[
+          'Use searchTerm (String) as a top-level field instead of query.textQuery.searchPhrase',
+          'Both fields achieve a name-contains search on products'
+        ],
+        body:'{"searchTerm":"Bundle","catalogId":"{{CATALOG_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":20,"enablePricing":true,"enableQualification":true,"userContext":{"accountId":"{{ACCOUNT_ID}}"}}'
+      },
+      {
+        type:'filtered-search',
+        label:'3 — Search with account context + filter + additionalFields',
+        desc:'Search with a user account context so qualification rules run per-account, filter by isActive, and return extra Product2 fields.',
+        steps:[
+          'Replace ACCOUNT_ID in userContext with your Account ID',
+          'Adjust filter.criteria to narrow results further',
+          'additionalFields.Product2.fields lists extra standard/custom fields to return'
+        ],
+        body:'{"query":{"textQuery":{"searchPhrase":"Router"}},"catalogId":"{{CATALOG_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":20,"enablePricing":true,"enableQualification":true,"userContext":{"accountId":"{{ACCOUNT_ID}}"},"filter":{"criteria":[{"property":"isActive","operator":"eq","value":true}]},"additionalFields":{"Product2":{"fields":["ProductCode","Description"]}}}'
+      }
+    ] },
 
   { id:'disc-2', category:'Discovery', name:'Catalog List (CPQ)', methods:['POST'],
     path:'/connect/cpq/catalogs', version:'v60.0',
@@ -314,7 +350,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'orderBy',type:'String[]',req:false,location:'body',desc:'(v60.0) Sort order for catalogs.'},
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "limit": 10,\n  "offset": 0\n}',
+    request:'{\n  "limit": 20,\n  "offset": 0,\n  "orderBy": ["name:asc"],\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
     response:'{\n  "catalogs": [\n    {\n      "id": "0ZSAU000000ANZd4AO",\n      "name": "CAR and LCV",\n      "catalogType": "Sales",\n      "isActive": true\n    }\n  ],\n  "totalCount": 1,\n  "correlationId": "catalog-list-001"\n}' },
 
   { id:'disc-3', category:'Discovery', name:'Categories List (CPQ)', methods:['POST'],
@@ -322,7 +358,9 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Returns categories and subcategories of a specified catalog. Composite API for Product Discovery.',
     page:306,
     params:[
-      {name:'catalogId',type:'String',req:false,location:'body',desc:'(v60.0) Catalog ID for offers with pricing details.'},
+      {name:'catalogId',type:'String',req:true,location:'body',desc:'(v60.0) Catalog ID for offers with pricing details. Required.'},
+      {name:'depth',type:'Integer',req:false,location:'body',desc:'(v61.0) Number of subcategory levels to retrieve beneath parentCategoryId. Only applies when parentCategoryId is provided.'},
+      {name:'parentCategoryId',type:'String',req:false,location:'body',desc:'(v61.0) ID of parent category whose subcategories to retrieve. If unspecified, root-level categories are returned.'},
       {name:'additionalContextData',type:'Context Data Input[]',req:false,location:'body',desc:'(v60.0) Additional custom context nodes. Maximum supported is 10.'},
       {name:'contextDefinition',type:'String',req:false,location:'body',desc:'(v60.0) Custom context definition API name.'},
       {name:'contextMapping',type:'String',req:false,location:'body',desc:'(v60.0) Context mapping for hydration.'},
@@ -334,11 +372,11 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions from GPM.'},
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "catalogId": "{{CATALOG_ID}}"\n}',
-    response:'{\n  "categories": [\n    {\n      "id": "0ZGAU000000BC2h4AG",\n      "name": "Configurable",\n      "isActive": true,\n      "sortOrder": 1,\n      "subCategories": []\n    },\n    {\n      "id": "0ZGAU000000BC2k4AG",\n      "name": "PreConfigured",\n      "isActive": true,\n      "sortOrder": 2,\n      "subCategories": []\n    }\n  ],\n  "correlationId": "cat-list-001"\n}' },
+    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "parentCategoryId": "{{PARENT_CATEGORY_ID}}",\n  "depth": 2,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
+    response:'{\n  "categories": [\n    {\n      "id": "0ZGAU000000BC2h4AG",\n      "name": "Configurable",\n      "isActive": true,\n      "sortOrder": 1,\n      "subCategories": [\n        {\n          "id": "0ZGAU000000BC2m4AG",\n          "name": "Laptops",\n          "isActive": true,\n          "sortOrder": 1,\n          "subCategories": []\n        }\n      ]\n    },\n    {\n      "id": "0ZGAU000000BC2k4AG",\n      "name": "PreConfigured",\n      "isActive": true,\n      "sortOrder": 2,\n      "subCategories": []\n    }\n  ],\n  "correlationId": "cat-list-001"\n}' },
 
   { id:'disc-4', category:'Discovery', name:'Guided Selection', methods:['POST'],
-    path:'/connect/cpq/guided-selection', version:'v62.0',
+    path:'/connect/cpq/products/guided-selection', version:'v62.0',
     desc:'Retrieve products based on guided selection response identifier or search terms.',
     page:315,
     params:[
@@ -369,8 +407,8 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions.'},
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v62.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "guidedSelectionResponseId": "{{GUIDED_SELECTION_RESPONSE_ID}}",\n  "limit": 10,\n  "enablePricing": true,\n  "enableQualification": true\n}',
-    response:'{\n  "correlationId": "guided-sel-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct"\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched guided selection products."}\n}' },
+    request:'// Option A — use a prior guided-selection response ID\n{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "guidedSelectionResponseId": "{{GUIDED_SELECTION_RESPONSE_ID}}",\n  "limit": 10,\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}\n\n// Option B — pass explicit searchTerms (no response ID yet)\n{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "searchTerms": [\n    {\n      "attributeDefinitionId": "{{ATTRIBUTE_DEFINITION_ID}}",\n      "attributePicklistValueId": "{{ATTRIBUTE_PICKLIST_VALUE_ID}}",\n      "value": "Blue"\n    }\n  ],\n  "limit": 20,\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
+    response:'{\n  "apiStatus": {\n    "messages": [],\n    "statusCode": "FETCHED_DETAILS_SUCCESSFULLY"\n  },\n  "correlationId": "corrId",\n  "cursor": "MTAwMDAwMDAwNg==",\n  "searchTerms": [\n    {"term": "IPhone"},\n    {"term": "4GB"},\n    {"term": "64GB"}\n  ],\n  "result": [\n    {\n      "id": "01txx0000006kYwAAI",\n      "name": "Sample product 1",\n      "description": "IPhone-13",\n      "additionalFields": {\n        "CustomField1__c": "TextValue"\n      },\n      "prices": [\n        {\n          "price": 150,\n          "priceBookEntryId": "12Axx0000004DF7EAM",\n          "pricingModel": {\n            "frequency": "Monthly",\n            "pricingModelType": "Recurring"\n          }\n        }\n      ],\n      "qualificationContext": {\n        "isQualified": true\n      }\n    }\n  ]\n}' },
 
   { id:'disc-5', category:'Discovery', name:'Product Details (CPQ)', methods:['POST'],
     path:'/connect/cpq/products/{productId}', version:'v60.0',
@@ -393,43 +431,100 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom qualification procedure API name.'},
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
+    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "currencyCode": "USD",\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}",\n    "contactId": "{{CONTACT_ID}}"\n  },\n  "additionalContextData": [\n    {\n      "nodeName": "Account",\n      "nodeData": {\n        "id": "{{ACCOUNT_ID}}",\n        "name": "Cloud Kicks"\n      }\n    }\n  ],\n  "additionalFields": {\n    "Product2": {\n      "fields": ["ProductCode","Description"]\n    },\n    "ProductAttributeDefinition": {\n      "fields": ["DefaultValue"]\n    }\n  }\n}',
     response:'{\n  "correlationId": "prod-detail-001",\n  "product": {\n    "id": "01tSa00000AzpIaIAJ",\n    "name": "ADM Offer",\n    "productCode": "BUND-SUB-ADM",\n    "isActive": true,\n    "isAssetizable": true,\n    "nodeType": "bundleProduct",\n    "configureDuringSale": "Allowed",\n    "productSpecificationType": {"name": "Commercial"},\n    "productSellingModelOptions": [\n      {"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen","pricingTerm": 1}}\n    ],\n    "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n    "attributeCategory": [{"name": "Subscription Details","attributes": [{"name": "Subscription Term","dataType": "Picklist","defaultValue": "36"}]}]\n  },\n  "status": {"code": "200","message": "Successfully fetched product details."}\n}' },
 
   { id:'disc-6', category:'Discovery', name:'Products List (CPQ)', methods:['POST'],
     path:'/connect/cpq/products', version:'v60.0',
-    desc:'Get a list of products for a specified catalog, category, or subcategory. Composite API for Product Discovery.',
+    desc:'Get a list of products for a specified catalog, category, or subcategory. Composite API for Product Discovery. If a parent categoryId is specified, returns products from all child categories.',
     page:314,
     params:[
-      {name:'priceBookId',type:'String',req:true,location:'body',desc:'(v60.0) ID of the price book to get prices from. Required.'},
-      {name:'additionalContextData',type:'Context Data Input[]',req:false,location:'body',desc:'(v60.0) Custom context nodes. Maximum supported is 10.'},
-      {name:'additionalFields',type:'Map<String,Additional Fields Input>',req:false,location:'body',desc:'(v61.0) Additional Product2 fields to include.'},
-      {name:'catalogId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the catalog.'},
-      {name:'categoryId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the category.'},
-      {name:'contextDefinition',type:'String',req:false,location:'body',desc:'(v60.0) Custom context definition API name.'},
-      {name:'contextMapping',type:'String',req:false,location:'body',desc:'(v60.0) Context mapping for hydration.'},
-      {name:'correlationId',type:'String',req:false,location:'body',desc:'(v60.0) Unique request identifier.'},
-      {name:'currencyCode',type:'String',req:false,location:'body',desc:'(v60.0) Currency code (required when multi-currency is enabled).'},
-      {name:'cursor',type:'String',req:false,location:'body',desc:'(v60.0) Unique ID for product position.'},
-      {name:'enablePricing',type:'Boolean',req:false,location:'body',desc:'(v60.0) Enable pricing. Default: true.'},
-      {name:'enableQualification',type:'Boolean',req:false,location:'body',desc:'(v60.0) Enable qualification rules. Default: true.'},
-      {name:'executeConfigurationRules',type:'Boolean',req:false,location:'body',desc:'(v67.0) Execute configuration rules.'},
-      {name:'filter',type:'Filter Input',req:false,location:'body',desc:'(v60.0) Filter records by criteria. Operators: eq, in, contains.'},
-      {name:'includeCatalogDetails',type:'Boolean',req:false,location:'body',desc:'(v61.0) Include catalog details. Default: false.'},
-      {name:'limit',type:'Integer',req:false,location:'body',desc:'(v60.0) Number of items to include. Default: 10.'},
+      {name:'priceBookId',type:'String',req:true,location:'body',desc:'(v60.0) ID of the price book to get prices from. Required. If not specified, prices from the standard price book are fetched.'},
+      {name:'additionalContextData',type:'Context Data Input[]',req:false,location:'body',desc:'(v60.0) Additional nodes added to the context definition. Max 10. Each entry: { "nodeName": "Account", "nodeData": { "id": "001xx...", "name": "Cloud Kicks" } }'},
+      {name:'additionalFields',type:'Map<String,Additional Fields Input>',req:false,location:'body',desc:'(v61.0) Extra Product2 fields to return. Structure: { "Product2": { "fields": ["CanRamp","ProductCode","DecompositionScope"] } }. Throws error if fields are invalid or inaccessible.'},
+      {name:'catalogId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the catalog. Returns products from this catalog with pricing details.'},
+      {name:'categoryId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the category. If not specified, returns all products from the catalog.'},
+      {name:'contextDefinition',type:'String',req:false,location:'body',desc:'(v60.0) API name of the custom context definition. If not specified, the default context definition is used.'},
+      {name:'contextMapping',type:'String',req:false,location:'body',desc:'(v60.0) Context mapping for hydration. Must belong to the specified contextDefinition.'},
+      {name:'correlationId',type:'String',req:false,location:'body',desc:'(v60.0) Unique identifier for the request (e.g. a UUID).'},
+      {name:'currencyCode',type:'String',req:false,location:'body',desc:'(v60.0) Currency ISO code (e.g. "USD"). Required when multi-currency is enabled in the org.'},
+      {name:'cursor',type:'String',req:false,location:'body',desc:'(v60.0) Opaque cursor for pagination — use the value returned in the previous response to get the next page.'},
+      {name:'enablePricing',type:'Boolean',req:false,location:'body',desc:'(v60.0) Include pricing in response. Default: true. Overridden by the Pricing Procedure toggle in Product Discovery Settings.'},
+      {name:'enableQualification',type:'Boolean',req:false,location:'body',desc:'(v60.0) Run qualification rules. Default: true. Overridden by the Qualification Procedure toggle in Product Discovery Settings.'},
+      {name:'executeConfigurationRules',type:'Boolean',req:false,location:'body',desc:'(v67.0) Execute visibility/configuration rules. Use with transactionId to run rules in context of an existing quote/order.'},
+      {name:'filter',type:'Filter Input',req:false,location:'body',desc:'(v60.0) Filter products. Structure: { "criteria": [{ "property": "name", "operator": "eq", "value": "Laptop" }] }. Supported operators: eq, in, contains (contains unavailable when indexed search is on). Multiple criteria are ANDed.'},
+      {name:'includeCatalogDetails',type:'Boolean',req:false,location:'body',desc:'(v61.0) Include catalog details in the response. Default: false.'},
+      {name:'limit',type:'Integer',req:false,location:'body',desc:'(v60.0) Number of products to return. Default: 10.'},
       {name:'offset',type:'Integer',req:false,location:'body',desc:'(v60.0) Reserved for internal use.'},
-      {name:'orderBy',type:'String[]',req:false,location:'body',desc:'(v60.0) Sort order. Default: asc.'},
-      {name:'pricingProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom pricing procedure API name.'},
-      {name:'productClassificationId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the product classification.'},
-      {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) Custom qualification procedure API name.'},
-      {name:'relatedObjectFilters',type:'Related Object Filter Input[]',req:false,location:'body',desc:'(v60.0) Filter by related object criteria.'},
-      {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v67.0) Transaction context ID.'},
-      {name:'transactionId',type:'String',req:false,location:'body',desc:'(v67.0) Transaction ID.'},
-      {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions.'},
-      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
+      {name:'orderBy',type:'String[]',req:false,location:'body',desc:'(v60.0) Sort fields. Format: ["name:asc"] or ["name:desc"]. When indexed search is on, only name is supported.'},
+      {name:'pricingProcedure',type:'String',req:false,location:'body',desc:'(v60.0) API name of the custom pricing procedure. Defaults to the procedure configured in Product Discovery Settings.'},
+      {name:'productClassificationId',type:'String',req:false,location:'body',desc:'(v60.0) ID of the product classification to filter by.'},
+      {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v60.0) API name of the custom qualification procedure. Defaults to the procedure configured in Product Discovery Settings.'},
+      {name:'relatedObjectFilters',type:'Related Object Filter Input[]',req:false,location:'body',desc:'(v60.0) Filter by related object fields. Structure: [{ "objectName": "ProductSpecificationRecType", "criteria": [{ "property": "IsCommercial", "operator": "eq", "value": true }] }]. Supported object: ProductSpecificationRecType. Supported property: IsCommercial. Operator: eq.'},
+      {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v67.0) ID of an existing transaction context (for config rules execution).'},
+      {name:'transactionId',type:'String',req:false,location:'body',desc:'(v67.0) ID of a quote or order to scope config rules against.'},
+      {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Include applicable GPM promotions per product. Default: true when Promotions feature is enabled, false otherwise.'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context for qualification rules. Structure: { "accountId": "001xx...", "contactId": "003xx...", "contextId": "e055bb18-..." }. All sub-fields optional.'},
     ],
-    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "categoryId": "{{CATEGORY_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "limit": 20,\n  "enableQualification": true,\n  "enablePricing": true,\n  "orderBy": ["name:asc"]\n}',
-    response:'{\n  "correlationId": "prod-list-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "categories": [{"id": "0ZGAU000000BC2h4AG","name": "Configurable"}],\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n      "productSellingModelOptions": [{"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen"}}]\n    }\n  ],\n  "totalCount": 1,\n  "status": {"code": "200","message": "Successfully fetched products."}\n}' },
+    request:'{\n  "correlationId": "eeaa1db2-f371-4227-a886-c77e2f66ce1d",\n  "catalogId": "{{CATALOG_ID}}",\n  "categoryId": "{{CATEGORY_ID}}",\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "productClassificationId": "{{PRODUCT_CLASSIFICATION_ID}}",\n  "currencyCode": "USD",\n  "limit": 60,\n  "cursor": "MTAwMDAwMDAwNg==",\n  "orderBy": ["name:asc"],\n  "enableQualification": true,\n  "enablePricing": true,\n  "includeCatalogDetails": true,\n  "qualificationProcedure": "ProductQualification",\n  "pricingProcedure": "pricingProcedure",\n  "contextDefinition": "BrowseContextDefinitionExt",\n  "contextMapping": "ProductDiscoveryMapping",\n  "userContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI",\n    "contextId": "e055bb18-d4e8-41c3-881e-0132b9561708"\n  },\n  "filter": {\n    "criteria": [\n      {\n        "property": "name",\n        "operator": "eq",\n        "value": "Laptop Pro Bundle"\n      }\n    ]\n  },\n  "relatedObjectFilters": [\n    {\n      "objectName": "ProductSpecificationRecType",\n      "criteria": [\n        {\n          "property": "IsCommercial",\n          "operator": "eq",\n          "value": true\n        }\n      ]\n    }\n  ],\n  "additionalContextData": [\n    {\n      "nodeName": "Account",\n      "nodeData": {\n        "id": "001xx0000000001AAA",\n        "name": "Cloud Kicks"\n      }\n    }\n  ],\n  "additionalFields": {\n    "Product2": {\n      "fields": [\n        "CanRamp",\n        "DecompositionScope",\n        "ProductCode"\n      ]\n    }\n  }\n}',
+    response:'{\n  "correlationId": "eeaa1db2-f371-4227-a886-c77e2f66ce1d",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "Laptop Pro Bundle",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "canRamp": true,\n      "decompositionScope": "LineItem",\n      "catalogs": [{"id": "{{CATALOG_ID}}","name": "Product Catalog"}],\n      "categories": [{"id": "{{CATEGORY_ID}}","name": "Configurable"}],\n      "prices": [{"priceType": "Standard","unitPrice": 150.00,"currencyCode": "USD"}],\n      "productSellingModelOptions": [\n        {"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen"}}\n      ],\n      "qualificationContext": {"isQualified": true,"qualificationReasons": []}\n    }\n  ],\n  "totalCount": 1,\n  "cursor": "MTAwMDAwMDAxNg==",\n  "status": {"code": "200","message": "Successfully fetched products."}\n}',
+    examples:[
+      {
+        type:'basic',
+        label:'1 — Basic catalog browse',
+        desc:'Minimum viable request: browse a catalog category with pricing and qualification enabled. Replace CATALOG_ID, CATEGORY_ID, and PRICE_BOOK_ID with your org values.',
+        steps:[
+          'Replace {{CATALOG_ID}} with your catalog ID (starts with 0ZS)',
+          'Replace {{CATEGORY_ID}} with your category ID (starts with 0ZG)',
+          'Replace {{PRICE_BOOK_ID}} with your price book ID (starts with 01s)',
+          'Set limit to control page size (max 300)'
+        ],
+        body:'{"catalogId":"{{CATALOG_ID}}","categoryId":"{{CATEGORY_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":20,"orderBy":["name:asc"],"enableQualification":true,"enablePricing":true}'
+      },
+      {
+        type:'account-context',
+        label:'2 — Browse with account context + extra fields',
+        desc:'Pass userContext to run qualification rules for a specific account. Use additionalFields to return custom Product2 fields (CanRamp, ProductCode) and additionalContextData to inject Account data into the context.',
+        steps:[
+          'Replace accountId in userContext with your Account ID',
+          'Update additionalFields.Product2.fields with any extra Product2 fields you need',
+          'Update additionalContextData nodeData with the real account name'
+        ],
+        body:'{"catalogId":"{{CATALOG_ID}}","categoryId":"{{CATEGORY_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":60,"enableQualification":true,"enablePricing":true,"includeCatalogDetails":true,"userContext":{"accountId":"001xx0000000001AAA","contactId":"003xx00000000D7AAI","contextId":"e055bb18-d4e8-41c3-881e-0132b9561708"},"additionalFields":{"Product2":{"fields":["CanRamp","DecompositionScope","ProductCode"]}},"additionalContextData":[{"nodeName":"Account","nodeData":{"id":"001xx0000000001AAA","name":"Cloud Kicks"}}]}'
+      },
+      {
+        type:'filter-related',
+        label:'3 — Filter by name + related object criteria',
+        desc:'Use filter.criteria to narrow by product name, and relatedObjectFilters to filter by a ProductSpecificationRecType field (e.g. IsCommercial = true).',
+        steps:[
+          'Set filter.criteria[0].value to the product name to match',
+          'Set relatedObjectFilters[0].criteria[0].value to true or false'
+        ],
+        body:'{"catalogId":"{{CATALOG_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":20,"enableQualification":false,"enablePricing":true,"filter":{"criteria":[{"property":"name","operator":"contains","value":"Bundle"}]},"relatedObjectFilters":[{"objectName":"ProductSpecificationRecType","criteria":[{"property":"IsCommercial","operator":"eq","value":true}]}]}'
+      },
+      {
+        type:'promotions',
+        label:'4 — With promotions (GPM)',
+        desc:'Fetch eligible GPM promotions per product. Requires Global Promotion Management enabled in the org. Pass transactionId to scope promotions to an existing quote/order.',
+        steps:[
+          'Set usePromotions to true (this is the default when GPM is enabled)',
+          'Optionally pass transactionId to get promotions relevant to an active quote/order',
+          'Each product in the response will include a promotions[] array'
+        ],
+        body:'{"catalogId":"{{CATALOG_ID}}","categoryId":"{{CATEGORY_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":60,"enableQualification":true,"enablePricing":true,"usePromotions":true,"transactionId":"{{QUOTE_OR_ORDER_ID}}","userContext":{"accountId":"001xx0000000001AAA"}}'
+      },
+      {
+        type:'config-rules',
+        label:'5 — Run visibility/config rules in transaction context',
+        desc:'Set executeConfigurationRules:true to run visibility rules and return UITreatments alongside products. Pass transactionId so rules are evaluated against an active quote or order line context.',
+        steps:[
+          'Replace transactionId with your quote/order ID',
+          'Set executeConfigurationRules to true',
+          'Response products will include configRuleResults/uiTreatments per product'
+        ],
+        body:'{"catalogId":"{{CATALOG_ID}}","priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","limit":12,"enableQualification":true,"enablePricing":true,"includeCatalogDetails":true,"executeConfigurationRules":true,"transactionId":"{{QUOTE_OR_ORDER_ID}}","userContext":{"accountId":"001xx0000000001AAA"},"filter":{"criteria":[{"property":"isActive","operator":"eq","value":true}]},"orderBy":["name:asc"]}'
+      }
+    ] },
 
   { id:'disc-7', category:'Discovery', name:'Qualification (CPQ)', methods:['POST'],
     path:'/connect/cpq/qualification', version:'v60.0',
@@ -447,7 +542,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
     request:'{\n  "productIds": [\n    "{{PRODUCT_ID}}"\n  ],\n  "catalogId": "{{CATALOG_ID}}",\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  }\n}',
-    response:'{\n  "correlationId": "qual-001",\n  "qualificationResults": [\n    {\n      "productId": "01tSa00000AzpIaIAJ",\n      "isQualified": true,\n      "reasons": []\n    }\n  ],\n  "status": {"code": "200","message": "Qualification completed successfully."}\n}' },
+    response:'{\n  "correlationId": "qual-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "isActive": true,\n      "qualificationContext": {\n        "isQualified": true,\n        "qualificationReasons": []\n      }\n    }\n  ],\n  "status": {"code": "200","message": "Qualification completed successfully."}\n}' },
 
   { id:'disc-8', category:'Discovery', name:'Product Recommendations', methods:['POST'],
     path:'/connect/cpq/products/recommendations', version:'v67.0',
@@ -471,7 +566,8 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'transactionContextId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the sales transaction context instance.'},
       {name:'transactionId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the quote or order.'},
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v67.0) Fetch eligible promotions. Default: false.'},
-      {name:'userContext',type:'User Context Input[]',req:false,location:'body',desc:'(v67.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
+      {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v67.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context). Singular object, not an array.'},
+      {name:'correlationId',type:'String',req:false,location:'body',desc:'(v67.0) Unique request correlation token for traceability. If not specified a UUID is generated.'},
     ],
     request:'{\n  "currencyCode": "USD",\n  "enablePricing": true,\n  "enableQualification": true,\n  "filter": [\n    {"criteria": [{"property": "isActive","operator": "eq","value": true}]}\n  ],\n  "limit": 12,\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "transactionId": "{{QUOTE_OR_ORDER_ID}}"\n}',
     response:'{\n  "correlationId": "rec-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched recommendations."}\n}' },
@@ -506,7 +602,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'usePromotions',type:'Boolean',req:false,location:'body',desc:'(v66.0) Fetch eligible promotions from GPM.'},
       {name:'userContext',type:'User Context Input',req:false,location:'body',desc:'(v60.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "enableQualification": true\n}',
+    request:'{\n  "catalogId": "{{CATALOG_ID}}",\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  },\n  "additionalContextData": [\n    {\n      "nodeName": "Account",\n      "nodeData": {\n        "id": "{{ACCOUNT_ID}}",\n        "name": "Cloud Kicks"\n      }\n    }\n  ]\n}',
     response:'{\n  "correlationId": "cat-detail-001",\n  "category": {\n    "id": "0ZGAU000000BC2h4AG",\n    "name": "Configurable",\n    "isActive": true,\n    "sortOrder": 1,\n    "catalogId": "0ZSAU000000ANZd4AO",\n    "subCategories": [],\n    "isQualified": true\n  },\n  "status": {"code": "200","message": "Successfully fetched category details."}\n}' },
 
   { id:'disc-11', category:'Discovery', name:'Bulk Product Details (CPQ)', methods:['POST'],
@@ -528,21 +624,46 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationProcedure',type:'String',req:false,location:'body',desc:'(v61.0) Custom qualification procedure API name.'},
       {name:'userContext',type:'User Context Input[]',req:false,location:'body',desc:'(v61.0) User context details for qualification rules: accountId (String), contactId (String), contextId (String — ID of an existing session context).'},
     ],
-    request:'{\n  "productData": [\n    {"productId": "{{PRODUCT_ID}}","productSellingModelId": "{{SELLING_MODEL_ID}}"}\n  ],\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "enablePricing": true,\n  "enableQualification": false\n}',
-    response:'{\n  "correlationId": "bulk-detail-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "isAssetizable": true,\n      "configureDuringSale": "Allowed",\n      "productSpecificationType": {"name": "Commercial"},\n      "productSellingModelOptions": [\n        {"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen","pricingTerm": 1,"pricingTermUnit": "Months"}}\n      ],\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n      "attributeCategory": [{"name": "Subscription Details","attributes": [{"name": "Subscription Term","dataType": "Picklist","defaultValue": "36","isRequired": true}]}]\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched bulk product details."}\n}' },
+    request:'{\n  "productData": [\n    {\n      "productId": "{{PRODUCT_ID}}",\n      "productSellingModelId": "{{SELLING_MODEL_ID}}"\n    }\n  ],\n  "priceBookId": "{{PRICE_BOOK_ID}}",\n  "currencyCode": "USD",\n  "enablePricing": true,\n  "enableQualification": true,\n  "userContext": {\n    "accountId": "{{ACCOUNT_ID}}"\n  },\n  "additionalFields": {\n    "Product2": {\n      "fields": ["ProductCode","Description"]\n    }\n  }\n}',
+    response:'{\n  "correlationId": "bulk-detail-001",\n  "products": [\n    {\n      "id": "01tSa00000AzpIaIAJ",\n      "name": "ADM Offer",\n      "productCode": "BUND-SUB-ADM",\n      "isActive": true,\n      "nodeType": "bundleProduct",\n      "isAssetizable": true,\n      "configureDuringSale": "Allowed",\n      "productSpecificationType": {"name": "Commercial"},\n      "productSellingModelOptions": [\n        {"id": "0iOSa00000007SjMAI","isDefault": true,"productSellingModel": {"name": "Evergreen - Monthly","sellingModelType": "Evergreen","pricingTerm": 1,"pricingTermUnit": "Months"}}\n      ],\n      "prices": [{"priceType": "Standard","unitPrice": 50.00,"currencyCode": "USD"}],\n      "attributeCategory": [{"name": "Subscription Details","attributes": [{"name": "Subscription Term","dataType": "Picklist","defaultValue": "36","isRequired": true}]}],\n      "qualificationContext": {"isQualified": true,"qualificationReasons": []}\n    }\n  ],\n  "status": {"code": "200","message": "Successfully fetched bulk product details."}\n}',
+    examples:[
+      {
+        type:'basic',
+        label:'1 — Bulk details for multiple products',
+        desc:'Retrieve details for 2+ products at once. productData is required — each entry must have productId, and optionally productSellingModelId to get pricing for a specific selling model.',
+        steps:[
+          'Add one productData entry per product ID you want details for',
+          'Set priceBookId and enablePricing to get prices per product',
+          'enableQualification:false skips qualification for faster response'
+        ],
+        body:'{"productData":[{"productId":"{{PRODUCT_ID_1}}","productSellingModelId":"{{SELLING_MODEL_ID_1}}"},{"productId":"{{PRODUCT_ID_2}}","productSellingModelId":"{{SELLING_MODEL_ID_2}}"}],"priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","enablePricing":true,"enableQualification":false}'
+      },
+      {
+        type:'with-context',
+        label:'2 — With account context + extra fields (qualification)',
+        desc:'Run qualification rules per-account and return extra Product2 fields. Use additionalFields to include custom attributes like ProductCode.',
+        steps:[
+          'Set userContext.accountId to run qualification per-account',
+          'additionalFields lists extra standard/custom Product2 fields to include in the response'
+        ],
+        body:'{"productData":[{"productId":"{{PRODUCT_ID}}","productSellingModelId":"{{SELLING_MODEL_ID}}"}],"priceBookId":"{{PRICE_BOOK_ID}}","currencyCode":"USD","enablePricing":true,"enableQualification":true,"userContext":{"accountId":"{{ACCOUNT_ID}}","contactId":"{{CONTACT_ID}}"},"additionalFields":{"Product2":{"fields":["ProductCode","Description"]}}}'
+      }
+    ] },
 
   // Salesforce Pricing
   { id:'price-1', category:'Pricing', name:'Pricing', methods:['POST'],
     path:'/connect/core-pricing/pricing', version:'v60.0',
-    desc:'Execute a pricing calculation for products.',
+    desc:'Execute headless pricing calculation. Takes a context definition, context mapping, and raw Cart/CartItem JSON data. Returns pricing results as a map of output tags. Different from Instant Pricing (price-6) which takes Salesforce sObject records.',
     page:764,
     params:[
-      {name:'contextId',type:'String',req:false,desc:'Context ID. New context created if not provided.'},
-      {name:'records',type:'Object[]',req:true,desc:'Records with pricing data to calculate.'},
-      {name:'correlationId',type:'String',req:false,desc:'Client tracking ID.'},
+      {name:'contextDefinitionId',type:'String',req:true,desc:'ID or developer name of the context definition.'},
+      {name:'contextMappingId',type:'String',req:true,desc:'ID or name of the context mapping.'},
+      {name:'jsonDataString',type:'String',req:true,desc:'Cart/CartItem data as a JSON string to price.'},
+      {name:'pricingProcedureId',type:'String',req:false,desc:'ID of a specific pricing procedure to use. If omitted, the default procedure is used.'},
+      {name:'configurationOverrides',type:'Object',req:false,desc:'Override options: skipWaterfall (Boolean), useSessionScopedContext (Boolean), persistContext (Boolean), referenceKey (String), displayContext (String), taggedData (Object), isHighVolumeLineItems (Boolean).'},
     ],
-    request:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "records": [\n    {\n      "referenceId": "ref1",\n      "record": {\n        "attributes": {"type": "QuoteLineItem","method": "POST"},\n        "QuoteId": "{{QUOTE_ID}}",\n        "Product2Id": "{{PRODUCT_ID}}",\n        "Quantity": 1,\n        "UnitPrice": 100\n      }\n    }\n  ]\n}',
-    response:'{\n  "contextId": "0HbSG00000001AAAA",\n  "records": [\n    {\n      "referenceId": "ref1",\n      "record": {\n        "attributes": {"type": "QuoteLineItem"},\n        "UnitPrice": 100.00,\n        "TotalPrice": 100.00,\n        "NetUnitPrice": 95.00,\n        "Quantity": 1\n      }\n    }\n  ]\n}' },
+    request:'{\n  "contextDefinitionId": "{{CONTEXT_DEFINITION_ID}}",\n  "contextMappingId": "{{CONTEXT_MAPPING_ID}}",\n  "jsonDataString": "{\\\"cartId\\\":\\\"{{CART_ID}}\\\",\\\"cartItems\\\":[{\\\"id\\\":\\\"item1\\\",\\\"quantity\\\":1,\\\"listPrice\\\":100}]}"\n}',
+    response:'{\n  "apiExecutionId": "0YBSG00000000AAAA",\n  "pricingExecutionId": "0YBSG00000000BBBB",\n  "status": "Completed",\n  "pricingResult": {\n    "subtotal": [{"key": "item1","value": "100.00"}],\n    "netunitprice": [{"key": "item1","value": "95.00"}],\n    "discount": [{"key": "item1","value": "5.00"}]\n  },\n  "pricingResultErrors": []\n}' },
 
   { id:'price-2', category:'Pricing', name:'API Execution Logs', methods:['GET'],
     path:'/connect/core-pricing/apiexecutionlogs/{executionId}', version:'v63.0',
@@ -559,31 +680,43 @@ export const ENDPOINTS: Endpoint[] = [
     params:[
       {name:'lineItemId',type:'String',req:true,location:'path',desc:'Line item ID. (Path param)'},
       {name:'executionId',type:'String',req:true,location:'path',desc:'Execution ID. (Path param)'},
+      {name:'tagsToFilter',type:'String',req:false,location:'query',desc:'(v61.0) Comma-separated list of tags to filter waterfall steps by.'},
+      {name:'usageType',type:'String',req:false,location:'query',desc:'(v62.0) Usage type filter: Pricing, Discovery, or Rating.'},
     ],
     request:'No request body.',
     response:'{\n  "lineItemId": "0QASa00000001AAAA",\n  "executionId": "0YBSG00000000AAAA",\n  "waterfall": [\n    {"stepName": "List Price","price": 100.00,"cumulative": 100.00},\n    {"stepName": "Tier Discount","price": -5.00,"cumulative": 95.00},\n    {"stepName": "Customer Discount","price": -5.00,"cumulative": 90.00},\n    {"stepName": "Net Price","price": 90.00,"cumulative": 90.00}\n  ]\n}' },
 
   { id:'price-4', category:'Pricing', name:'Pricing Waterfall (POST)', methods:['POST'],
     path:'/connect/core-pricing/waterfall', version:'v60.0',
-    desc:'Calculates and returns the pricing waterfall for line items.',
+    desc:'Persist/log waterfall results for a pricing execution. This is a write/persist operation — it stores the calculated waterfall data for later retrieval via GET. It is NOT a recalculation endpoint.',
     page:774,
     params:[
-      {name:'lineItemIds',type:'String[]',req:true,desc:'Line item IDs.'},
-      {name:'contextId',type:'String',req:false,desc:'Context ID.'},
+      {name:'executionId',type:'String',req:true,desc:'Execution ID of the pricing run.'},
+      {name:'lineItemId',type:'String',req:true,desc:'ID of the line item the waterfall belongs to.'},
+      {name:'waterfall',type:'Pricing Waterfall Input[]',req:true,desc:'Array of waterfall steps to persist. Each step: fieldToTagNameMapping (Object), inputParameters (Object), outputParameters (Object), pricingElement (String), sequence (Integer).'},
+      {name:'currencyCode',type:'String',req:false,desc:'Currency ISO code.'},
+      {name:'executionEndTimestamp',type:'String',req:false,desc:'ISO 8601 timestamp when execution ended.'},
+      {name:'executionStartTimestamp',type:'String',req:false,desc:'ISO 8601 timestamp when execution started.'},
+      {name:'output',type:'Map<String,Object>',req:false,desc:'Output values to persist alongside the waterfall.'},
+      {name:'contextDefinitionVersionId',type:'String',req:false,desc:'ID of the context definition version used.'},
+      {name:'contextMappingId',type:'String',req:false,desc:'ID of the context mapping used.'},
     ],
-    request:'{\n  "lineItemIds": ["{{LINE_ITEM_ID}}"],\n  "contextId": "{{CONTEXT_ID}}"\n}',
-    response:'{\n  "waterfalls": [\n    {\n      "lineItemId": "0QASa00000001AAAA",\n      "steps": [\n        {"stepName": "List Price","price": 100.00},\n        {"stepName": "Net Price","price": 90.00}\n      ]\n    }\n  ]\n}' },
+    request:'{\n  "executionId": "{{EXECUTION_ID}}",\n  "lineItemId": "{{LINE_ITEM_ID}}",\n  "waterfall": [\n    {\n      "pricingElement": "ListPrice",\n      "sequence": 1,\n      "inputParameters": {},\n      "outputParameters": {"netunitprice": 100.00},\n      "fieldToTagNameMapping": {}\n    }\n  ]\n}',
+    response:'{\n  "success": true,\n  "id": "0YBSG00000000CCCC"\n}' },
 
   { id:'price-5', category:'Pricing', name:'Procedure Plan Definitions', methods:['GET','POST'],
     path:'/connect/procedure-plan-definitions', version:'v62.0',
     desc:'GET all procedure plan definitions. POST creates a new one.',
     page:776,
     params:[
-      {name:'name',type:'String',req:true,desc:'(POST) API name of the definition.'},
-      {name:'procedureType',type:'String',req:true,desc:'(POST) Type of procedure.'},
+      {name:'developerName',type:'String',req:true,desc:'(POST) Developer/API name of the definition.'},
+      {name:'processType',type:'String',req:true,desc:'(POST) Process type of the definition. Valid values (from v63.0): Billing, DRO, DeepClone, ProductDiscovery, "Revenue Cloud", Default.'},
+      {name:'procedurePlanDefinitionVersions',type:'Object[]',req:true,desc:'(POST) At least one version definition must be included inline.'},
+      {name:'description',type:'String',req:false,desc:'(POST) Optional description.'},
+      {name:'isTemplate',type:'Boolean',req:false,location:'query',desc:'(GET) When true, returns file-based template definitions.'},
     ],
-    request:'{\n  "name": "StandardPricingPlan",\n  "procedureType": "Pricing"\n}',
-    response:'{\n  "id": "0YDSG00000001AAAA",\n  "name": "StandardPricingPlan",\n  "procedureType": "Pricing",\n  "isActive": true,\n  "versions": []\n}' },
+    request:'{\n  "developerName": "StandardPricingPlan",\n  "processType": "Revenue Cloud",\n  "procedurePlanDefinitionVersions": [\n    {\n      "active": false,\n      "developerName": "v1",\n      "effectiveFrom": "2024-01-01T00:00:00.000Z",\n      "effectiveTo": "2025-01-01T00:00:00.000Z",\n      "rank": 1\n    }\n  ]\n}',
+    response:'{\n  "id": "0YDSG00000001AAAA",\n  "developerName": "StandardPricingPlan",\n  "processType": "Revenue Cloud",\n  "success": true\n}' },
 
   { id:'price-6', category:'Pricing', name:'Instant Pricing', methods:['POST'],
     path:'/industries/cpq/quotes/actions/get-instant-price', version:'v60.0',
@@ -594,7 +727,30 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'records',type:'Object[]',req:true,desc:'Records to price.'},
     ],
     request:'{\n  "correlationId": "instant-price-001",\n  "records": [\n    {\n      "referenceId": "ref1",\n      "record": {\n        "attributes": {"type": "Quote","method": "POST"},\n        "Name": "Test Quote",\n        "Pricebook2Id": "{{PRICE_BOOK_ID}}"\n      }\n    }\n  ]\n}',
-    response:'{\n  "contextId": "0HbSG00000001AAAA",\n  "records": [\n    {\n      "referenceId": "ref1",\n      "record": {\n        "attributes": {"type": "Quote"},\n        "TotalAmount": 150.00,\n        "NetAmount": 135.00,\n        "TaxAmount": 15.00\n      }\n    }\n  ]\n}' },
+    response:'{\n  "contextId": "0HbSG00000001AAAA",\n  "records": [\n    {\n      "referenceId": "ref1",\n      "record": {\n        "attributes": {"type": "Quote"},\n        "TotalAmount": 150.00,\n        "NetAmount": 135.00,\n        "TaxAmount": 15.00\n      }\n    }\n  ]\n}',
+    examples:[
+      {
+        type:'group-by',
+        label:'GroupBy — group line items by product family',
+        desc:'Use GroupBy to organize line items by a field such as ProductFamily. The response includes a groupId for each group.',
+        steps:['Set groupAction to "GroupBy"','Specify groupBy field (e.g. "ProductFamily")','Run pricing — response includes groups with groupId'],
+        body:'{"groupAction":"GroupBy","groupBy":"ProductFamily","records":[{"referenceId":"ref1","record":{"attributes":{"type":"QuoteLineItem","method":"PATCH"},"Id":"{{QUOTE_LINE_ID}}","Quantity":2}}]}'
+      },
+      {
+        type:'group-all',
+        label:'GroupAll — put all line items into a single group',
+        desc:'GroupAll collapses all line items into one group for aggregate pricing.',
+        steps:['Set groupAction to "GroupAll"','Run pricing'],
+        body:'{"groupAction":"GroupAll","records":[{"referenceId":"ref1","record":{"attributes":{"type":"QuoteLineItem","method":"PATCH"},"Id":"{{QUOTE_LINE_ID}}"}}]}'
+      },
+      {
+        type:'move-group',
+        label:'MoveGroup — move a line item to another group',
+        desc:'Move an existing line item to a different pricing group. Obtain groupId from a previous GroupBy call.',
+        steps:['Obtain groupId from a previous GroupBy call','Set groupAction to "MoveGroup"','Specify targetGroupId'],
+        body:'{"groupAction":"MoveGroup","targetGroupId":"grp-001","records":[{"referenceId":"ref2","record":{"attributes":{"type":"QuoteLineItem","method":"PATCH"},"Id":"{{QUOTE_LINE_ID_2}}"}}]}'
+      }
+    ] },
 
   { id:'price-7', category:'Pricing', name:'Procedure Plan Version (POST)', methods:['POST'],
     path:'/connect/procedure-plan-definitions/{procedurePlanDefinitionId}/version', version:'v62.0',
@@ -606,7 +762,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'contextDefinition',type:'String',req:true,desc:'Context definition associated with the version.'},
       {name:'developerName',type:'String',req:true,desc:'Unique developer name of the version.'},
       {name:'effectiveFrom',type:'String',req:true,desc:'Date/time the version comes into effect (ISO 8601).'},
-      {name:'effectiveTo',type:'String',req:true,desc:'Date/time the version is no longer in effect (ISO 8601).'},
+      {name:'effectiveTo',type:'String',req:false,desc:'Date/time the version is no longer in effect (ISO 8601). Optional — omit for an open-ended version.'},
       {name:'procedurePlanSections',type:'Procedure Plan Section Input[]',req:true,desc:'Procedure setup sections.'},
       {name:'rank',type:'Integer',req:true,desc:'Rank for execution sequence.'},
       {name:'recordId',type:'String',req:true,desc:'ID of the procedure plan definition version record.'},
@@ -622,13 +778,16 @@ export const ENDPOINTS: Endpoint[] = [
     page:770,
     params:[
       {name:'procedurePlanVersionId',type:'String',req:true,location:'path',desc:'Procedure plan version record ID or name. (Path param — starts with 1Cv)'},
-      {name:'active',type:'Boolean',req:true,desc:'(PATCH) Active status. Cannot edit/delete an active version.'},
-      {name:'contextDefinition',type:'String',req:true,desc:'(PATCH) Context definition API name.'},
-      {name:'developerName',type:'String',req:true,desc:'(PATCH) Unique developer name.'},
-      {name:'effectiveFrom',type:'String',req:true,desc:'(PATCH) Effective from date/time.'},
-      {name:'procedurePlanSections',type:'Procedure Plan Section Input[]',req:true,desc:'(PATCH) Procedure plan sections.'},
-      {name:'rank',type:'Integer',req:true,desc:'(PATCH) Execution rank.'},
-      {name:'recordId',type:'String',req:true,desc:'(PATCH) Version record ID.'},
+      {name:'active',type:'Boolean',req:false,desc:'(PATCH only) Active status. Cannot edit/delete an active version.'},
+      {name:'contextDefinition',type:'String',req:false,desc:'(PATCH only) Context definition API name.'},
+      {name:'developerName',type:'String',req:false,desc:'(PATCH only) Unique developer name.'},
+      {name:'effectiveFrom',type:'String',req:false,desc:'(PATCH only) Effective from date/time. Required when setting a time-bounded version.'},
+      {name:'effectiveTo',type:'String',req:false,desc:'(PATCH only) Effective end date/time. Required when setting a time-bounded version alongside effectiveFrom.'},
+      {name:'procedurePlanSections',type:'Procedure Plan Section Input[]',req:false,desc:'(PATCH only) Procedure plan sections.'},
+      {name:'rank',type:'Integer',req:false,desc:'(PATCH only) Execution rank.'},
+      {name:'recordId',type:'String',req:false,desc:'(PATCH only) Version record ID.'},
+      {name:'readContextMapping',type:'String',req:false,desc:'(PATCH only) Context mapping used to read input data.'},
+      {name:'saveContextMapping',type:'String',req:false,desc:'(PATCH only) Context mapping used to save output data.'},
     ],
     request:'{\n  "active": false,\n  "developerName": "sample_version_input",\n  "effectiveFrom": "2024-07-09T00:00:00.000Z",\n  "contextDefinition": "SalesTransactionContext__stdctx",\n  "procedurePlanSections": [],\n  "rank": 1,\n  "recordId": "{{PROCEDURE_PLAN_VERSION_ID}}"\n}',
     response:'{\n  "id": "1CvSa0000001nzZKAQ",\n  "developerName": "sample_version_input",\n  "active": false,\n  "rank": 1,\n  "effectiveFrom": "2024-07-09T00:00:00.000Z",\n  "success": true\n}' },
@@ -638,10 +797,10 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Get details of the pricing simulation input variables along with associated data.',
     page:773,
     params:[
-      {name:'contextDefinitionId',type:'String',req:true,desc:'ID or developer name of the context definition.'},
-      {name:'contextMappingId',type:'String',req:true,desc:'ID or name of the context mapping.'},
-      {name:'entityId',type:'String',req:true,desc:'ID of a quote or order.'},
-      {name:'expressionSetVersionId',type:'String',req:true,desc:'ID of the expression set version (starts with 9QM).'},
+      {name:'contextDefinitionId',type:'String',req:true,location:'query',desc:'ID or developer name of the context definition.'},
+      {name:'contextMappingId',type:'String',req:true,location:'query',desc:'ID or name of the context mapping.'},
+      {name:'entityId',type:'String',req:true,location:'query',desc:'ID of a quote or order.'},
+      {name:'expressionSetVersionId',type:'String',req:true,location:'query',desc:'ID of the expression set version (starts with 9QM).'},
     ],
     request:'No request body. All parameters are query params.',
     response:'{\n  "simulationInputVariables": [\n    {"apiName": "Quantity","label": "Quantity","dataType": "Number","currentValue": 1},\n    {"apiName": "UnitPrice","label": "Unit Price","dataType": "Currency","currentValue": 100.00},\n    {"apiName": "Discount","label": "Discount %","dataType": "Percent","currentValue": 10}\n  ]\n}' },
@@ -652,21 +811,21 @@ export const ENDPOINTS: Endpoint[] = [
     desc:'Get a rate plan for a specified context. Retrieves rate cards, entries, and adjustments.',
     page:936,
     params:[
-      {name:'contextId',type:'String',req:true,desc:'Context input ID.'},
-      {name:'procedureApiName',type:'String',req:true,desc:'API name of the procedure.'},
+      {name:'contextId',type:'String',req:true,location:'query',desc:'Context input ID.'},
+      {name:'procedureApiName',type:'String',req:true,location:'query',desc:'API name of the procedure.'},
     ],
     request:'No request body. Pass contextId and procedureApiName as query params.',
     response:'{\n  "success": true,\n  "executionId": "a521d592-71c3-4db3-8048-r64504df1605",\n  "ratePlan": {\n    "rateCards": [\n      {\n        "id": "0RP0000000001AAA",\n        "name": "Standard Rate Card",\n        "entries": [\n          {"minQty": 1,"maxQty": 100,"unitRate": 0.05},\n          {"minQty": 101,"maxQty": 1000,"unitRate": 0.04}\n        ]\n      }\n    ]\n  },\n  "error": {}\n}' },
 
   { id:'rate-2', category:'Rate', name:'Rating Waterfall', methods:['GET'],
-    path:'/connect/core-rating/waterfall/{lineItemId}/{executionId}', version:'v62.0',
+    path:'/connect/core-pricing/waterfall/{lineItemId}/{executionId}', version:'v62.0',
     desc:'Get the persisted rating waterfall process logs.',
     page:937,
     params:[
       {name:'lineItemId',type:'String',req:true,location:'path',desc:'Line item ID. (Path param)'},
       {name:'executionId',type:'String',req:true,location:'path',desc:'Execution ID. (Path param)'},
       {name:'tagsToFilter',type:'String',req:false,desc:'Comma-separated tags.'},
-      {name:'usageType',type:'String',req:false,desc:'Rating or Pricing (default).'},
+      {name:'usageType',type:'String',req:false,desc:'(v62.0) Filter by waterfall type. Valid values: Rating, Pricing. Default is Pricing. Use Rating to fetch rating waterfall logs.'},
     ],
     request:'No request body.',
     response:'{\n  "success": true,\n  "usageType": "Rating",\n  "output": {"quantity": "250","netUnitPrice": "0.045"},\n  "waterfall": [\n    {"stepName": "Tier 1 Rate","rate": 0.05,"quantity": 100,"amount": 5.00},\n    {"stepName": "Tier 2 Rate","rate": 0.04,"quantity": 150,"amount": 6.00},\n    {"stepName": "Net Charge","rate": null,"quantity": 250,"amount": 11.00}\n  ]\n}' },
@@ -677,7 +836,7 @@ export const ENDPOINTS: Endpoint[] = [
     page:935,
     params:[
       {name:'contextDefinitionId',type:'String',req:true,location:'body',desc:'(v62.0) ID of the context definition for the rating service.'},
-      {name:'recordId',type:'String',req:true,location:'body',desc:'(v62.0) ID of the record to rate (e.g., OrderItem ID).'},
+      {name:'recordID',type:'String',req:true,location:'body',desc:'(v62.0) ID of the record to rate (e.g., OrderItem ID). Note: field name uses capital D per the API spec.'},
       {name:'contextMappingID',type:'String',req:false,location:'body',desc:'(v62.0) ID of the context mapping.'},
       {name:'procedureName',type:'String',req:false,location:'body',desc:'(v62.0) API name of the rating procedure.'},
       {name:'baseRateCardID',type:'String',req:false,location:'body',desc:'(v62.0) ID of the base rate card.'},
@@ -685,8 +844,8 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'attributeRateCardID',type:'String',req:false,location:'body',desc:'(v62.0) ID of the attribute rate card.'},
       {name:'isSkipWaterfall',type:'Boolean',req:false,location:'body',desc:'(v62.0) If true, skips waterfall logging. Default: false.'},
     ],
-    request:'{\n  "inputs": [\n    {\n      "contextDefinitionId": "{{CONTEXT_DEFINITION_ID}}",\n      "recordId": "{{ORDER_ITEM_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "outputs": [\n    {\n      "lineItemId": "0QASa00000001AAAA",\n      "ratedPrice": 11.00,\n      "quantity": 250,\n      "unitRate": 0.045,\n      "success": true\n    }\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "contextDefinitionId": "{{CONTEXT_DEFINITION_ID}}",\n      "recordID": "{{ORDER_ITEM_ID}}"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "invokeRatingService",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {}\n  }\n]' },
 
   // Configurator
   { id:'cfg-1', category:'Configurator', name:'Configuration', methods:['POST'],
@@ -854,16 +1013,15 @@ export const ENDPOINTS: Endpoint[] = [
     response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
 
   { id:'cfg-4', category:'Configurator', name:'Config Rules Execute', methods:['POST'],
-    path:'/revenue/product-configurator/rules/actions/execute', version:'v67.0',
-    desc:'Run configuration rules for a quote or order. Returns message rules (validation/warning/info), product recommendation rules, visibility rules (hide/disable), and a transactionContextId. Pass either transactionContextId or transactionId — one is required.',
+    path:'/services/data/v65.0/actions/standard/runConfigRules', version:'v65.0',
+    desc:'Run configuration rules for a quote or order via standard invocable action. Returns message rules (validation/warning/info), product recommendation rules, visibility rules (hide/disable), and a transactionContextId. Pass either transactionContextId or transactionId — one is required. Wrap inputs in the standard invocable action "inputs" array.',
     page:978,
     params:[
-      {name:'transactionContextId',type:'String',req:false,desc:'ID of the sales transaction context instance. Required if transactionId is not specified.'},
-      {name:'transactionId',type:'String',req:false,desc:'ID of the quote or order. Required if transactionContextId is not specified.'},
-      {name:'ruleOptions',type:'Config Rule Options Input',req:false,desc:'isUpdateContextRequired (Boolean, default true) — whether to automatically add or delete products and components as part of context update. Set to false if Place Sales Transaction API is invoked with configuration enabled, to avoid redundant context logic execution.'},
+      {name:'transactionContextId',type:'String',req:false,location:'body',desc:'ID of the sales transaction context instance. Required if transactionId is not specified.'},
+      {name:'transactionId',type:'String',req:false,location:'body',desc:'ID of the quote or order. Required if transactionContextId is not specified.'},
     ],
-    request:'{\n  "transactionContextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "transactionId": "0Q0DU0000005tJh0AI",\n  "ruleOptions": {\n    "isUpdateContextRequired": false\n  }\n}',
-    response:'{\n  "errors": [],\n  "messageRules": [\n    {\n      "message": "You have a 128GB LRDIMM QLI",\n      "messageType": "error",\n      "primaryRecordId": "0Q0VW000000z8yN0AQ"\n    },\n    {\n      "message": "You have a 16GB RDIMM QLI",\n      "messageType": "warning",\n      "primaryRecordId": "0Q0VW000000z8yN0AQ"\n    },\n    {\n      "message": "You have a 32GB RDIMM QLI",\n      "messageType": "info",\n      "primaryRecordId": "0Q0VW000000z8yN0AQ"\n    }\n  ],\n  "productRecommendationRules": [\n    {\n      "message": "32GB RDIMM recommends 16GB RDIMM",\n      "productIds": ["01tVW000003l7uaYAA"],\n      "recordType": "Type",\n      "referenceId": "0Q0VW000000z8yN0AQ"\n    }\n  ],\n  "success": true,\n  "transactionContextId": "0000000r25tq18g00291775730228818e689c3c5756e409fb3f886f68937ab13",\n  "visibilityRules": [\n    {\n      "message": "128GB LRDIMM disables 16GB RDIMM",\n      "productIds": ["01tVW000003l7uaYAA"],\n      "scope": "virtual",\n      "target": "product",\n      "type": "disable"\n    },\n    {\n      "message": "Disable All other API Products",\n      "productIds": ["01tVW000003l7u0YAA", "01tVW000003l7u1YAA"],\n      "scope": "virtual",\n      "target": "product",\n      "type": "disable"\n    }\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "transactionContextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n      "transactionId": "0Q0DU0000005tJh0AI"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "runConfigRules",\n    "isSuccess": true,\n    "outputValues": {\n      "transactionContextId": "0000000r25tq18g00291775730228818e689c3c5756e409fb3f886f68937ab13",\n      "configRuleResult": {\n        "errors": [],\n        "messageRules": [\n          {\n            "stiId": "0Q0VW000000z8yN0AQ",\n            "severity": "error",\n            "messages": ["You have a 128GB LRDIMM QLI"]\n          },\n          {\n            "stiId": "0Q0VW000000z8yN0AQ",\n            "severity": "warning",\n            "messages": ["You have a 16GB RDIMM QLI"]\n          }\n        ],\n        "productRecommendationRules": [\n          {\n            "message": "32GB RDIMM recommends 16GB RDIMM",\n            "productIds": ["01tVW000003l7uaYAA"],\n            "referenceId": "0Q0VW000000z8yN0AQ"\n          }\n        ],\n        "visibilityRules": [\n          {\n            "message": "128GB LRDIMM disables 16GB RDIMM",\n            "productIds": ["01tVW000003l7uaYAA"],\n            "scope": "virtual",\n            "target": "product",\n            "type": "disable"\n          }\n        ]\n      }\n    }\n  }\n]' },
 
   // Transaction Management
   { id:'txn-1', category:'Transaction', name:'Asset Amendment', methods:['POST'],
@@ -881,7 +1039,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'skipPricing',type:'Boolean',req:false,desc:'Whether to skip pricing (true) or run the pricing procedure (false). Available in API v64.0+.'},
     ],
     request:'{\n  "assetIds": ["{{ASSET_ID}}"],\n  "amendmentStartDate": "2026-07-01T00:00:00",\n  "outputRecordType": "Quote",\n  "quantityChange": 5,\n  "contractId": "{{CONTRACT_ID}}",\n  "opportunityId": "{{OPPORTUNITY_ID}}",\n  "outputRecordId": "{{OUTPUT_RECORD_ID}}",\n  "skipPricing": false\n}',
-    response:'{\n  "outputRecordId": "801SG00000DX1jWYAT",\n  "outputRecordType": "Quote",\n  "status": "Success",\n  "amendedAssets": [\n    {"assetId": "02iSG0000003NMhYAM", "action": "AMEND", "quantity": 10}\n  ]\n}' },
+    response:'{\n  "outputRecordId": "801SG00000DX1jWYAT",\n  "outputRecordType": "Quote"\n}' },
 
   { id:'txn-2', category:'Transaction', name:'Asset Cancellation', methods:['POST'],
     path:'/connect/revenue-management/assets/actions/cancel', version:'v62.0',
@@ -896,7 +1054,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'outputRecordId',type:'String',req:false,desc:'ID of the quote or order that you want to cancel.'},
     ],
     request:'{\n  "assetIds": ["{{ASSET_ID}}"],\n  "cancellationDate": "2024-01-01T00:00:00",\n  "contractId": "{{CONTRACT_ID}}",\n  "opportunityId": "{{OPPORTUNITY_ID}}",\n  "outputRecordId": "{{OUTPUT_RECORD_ID}}",\n  "outputRecordType": "Quote"\n}',
-    response:'{\n  "outputRecordId": "801SG00000CX1jWYAT",\n  "outputRecordType": "Quote",\n  "status": "Success",\n  "cancelledAssets": [\n    {"assetId": "02iSG0000003NMhYAM","action": "CANCEL","effectiveDate": "2023-10-04T00:00:00"}\n  ]\n}' },
+    response:'{\n  "outputRecordId": "801SG00000CX1jWYAT",\n  "outputRecordType": "Quote"\n}' },
 
   { id:'txn-3', category:'Transaction', name:'Asset Renewal', methods:['POST'],
     path:'/connect/revenue-management/assets/actions/renew', version:'v62.0',
@@ -912,7 +1070,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'renewalEndDate',type:'String',req:false,desc:'End date of the renewal process for the assets.'},
     ],
     request:'{\n  "assetIds": ["{{ASSET_ID}}"],\n  "outputRecordType": "Quote",\n  "contractId": "{{CONTRACT_ID}}",\n  "opportunityId": "{{OPPORTUNITY_ID}}",\n  "outputRecordId": "{{OUTPUT_RECORD_ID}}",\n  "renewalStartDate": "2026-07-01T00:00:00",\n  "renewalEndDate": "2027-07-01T00:00:00"\n}',
-    response:'{\n  "outputRecordId": "801SG00000EX1jWYAT",\n  "outputRecordType": "Quote",\n  "status": "Success",\n  "renewedAssets": [\n    {"assetId": "02iSG0000003NMhYAM","action": "RENEW","renewalStartDate": "2023-10-04T00:00:00","renewalEndDate": "2024-10-03T23:59:59"}\n  ]\n}' },
+    response:'{\n  "outputRecordId": "801SG00000EX1jWYAT",\n  "outputRecordType": "Quote"\n}' },
 
   { id:'txn-4', category:'Transaction', name:'Place Quote', methods:['POST'],
     path:'/commerce/quotes/actions/place', version:'v60.0',
@@ -1011,7 +1169,7 @@ export const ENDPOINTS: Endpoint[] = [
 
   { id:'usage-4', category:'Usage', name:'Usage Product Activation', methods:['POST'],
     path:'/revenue/usage-management/usage-products/actions/activate', version:'v67.0',
-    desc:'Activate a usage product and all related records in a single request.',
+    desc:'[Unverified path — not confirmed in official docs] Activate a usage product and all related records in a single request.',
     page:2037,
     params:[
       {name:'activationRequests',type:'Object[]',req:true,desc:'One activation request (max 1 product).'},
@@ -1046,22 +1204,64 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'billingTransactionId',type:'String',req:false,location:'body',desc:'(v63.0) Billing transaction (Order) record ID. Required if accountId and billingScheduleIds not specified.'},
       {name:'correlationId',type:'String',req:false,location:'body',desc:'(v62.0) Tagged on InvoiceProcessedEvent for traceability.'},
     ],
-    request:'{\n  "action": "Draft",\n  "invoiceDate": "2024-07-09",\n  "targetDate": "2024-07-09",\n  "billingScheduleIds": ["{{BILLING_SCHEDULE_ID}}"]\n}',
-    response:'{\n  "invoiceId": "3ttSG00000001AAAA",\n  "invoiceNumber": "INV-2024-00001",\n  "status": "Draft",\n  "accountId": "001SG00000DX1jWYAT",\n  "totalAmount": 150.00,\n  "billingDate": "2024-07-09",\n  "dueDate": "2024-08-09"\n}' },
+    request:'{\n  "action": "Draft",\n  "invoiceDate": "2026-07-01",\n  "targetDate": "2026-07-01",\n  "billingScheduleIds": ["{{BILLING_SCHEDULE_ID}}"]\n}',
+    response:'{\n  "requestIdentifier": "req-inv-001",\n  "success": true,\n  "errors": []\n}',
+    examples:[
+      {
+        type:'by-billing-schedule',
+        label:'1 — Invoice by billing schedule IDs',
+        desc:'Generate invoices for specific billing schedules. action:Draft creates draft invoices; use action:Posted to post directly. billingScheduleIds accepts up to 200 IDs.',
+        steps:[
+          'Replace BILLING_SCHEDULE_ID with your billing schedule ID (starts with 44b)',
+          'Set action to "Draft" (review first) or "Posted" (immediate posting)',
+          'invoiceDate = stamp date on the invoice; targetDate = period cutoff date',
+          'Response is async: requestIdentifier returned, InvoiceProcessedEvent fires on completion'
+        ],
+        body:'{"action":"Draft","invoiceDate":"2026-07-01","targetDate":"2026-07-01","billingScheduleIds":["{{BILLING_SCHEDULE_ID}}"],"correlationId":"inv-gen-001"}'
+      },
+      {
+        type:'by-account',
+        label:'2 — Invoice by account ID (v63.0+)',
+        desc:'Generate invoices for all billing schedules under an account. Use accountId instead of billingScheduleIds. Available from API v63.0.',
+        steps:[
+          'Replace ACCOUNT_ID with your account ID (starts with 001)',
+          'Set targetDate to the billing cutoff date — schedules due on or before this date are invoiced'
+        ],
+        body:'{"action":"Posted","invoiceDate":"2026-07-01","targetDate":"2026-07-31","accountId":"{{ACCOUNT_ID}}"}'
+      },
+      {
+        type:'by-order',
+        label:'3 — Invoice by billing transaction (Order) (v63.0+)',
+        desc:'Generate invoices for a specific order/billing transaction. Use billingTransactionId. Available from API v63.0.',
+        steps:[
+          'Replace ORDER_ID with your order ID (starts with 801)',
+          'billingTransactionId = the order ID that produced billing schedules'
+        ],
+        body:'{"action":"Draft","invoiceDate":"2026-07-01","targetDate":"2026-07-01","billingTransactionId":"{{ORDER_ID}}"}'
+      }
+    ] },
 
   { id:'bill-2', category:'Billing', name:'Batch Invoice Scheduler', methods:['POST','PUT'],
     path:'/commerce/invoicing/invoice-schedulers', version:'v62.0',
-    desc:'Create or update an invoice scheduler (Once, Daily, Weekly, Monthly).',
+    desc:'Create or update an invoice scheduler (Once, Daily, Weekly, Monthly). PUT requires {billingBatchSchedulerId} appended to the path.',
     page:2490,
     params:[
       {name:'schedulerName',type:'String',req:true,desc:'Unique scheduler name.'},
-      {name:'startDate',type:'String',req:true,desc:'Start date.'},
+      {name:'startDate',type:'String',req:true,desc:'Start date (yyyy-MM-dd).'},
       {name:'status',type:'String',req:true,desc:'Draft, Active, or Inactive.'},
       {name:'frequencyCadence',type:'String',req:true,desc:'Once, Daily, Weekly, or Monthly.'},
-      {name:'invoiceStatus',type:'String',req:true,desc:'Draft or Posted.'},
+      {name:'invoiceStatus',type:'String',req:true,desc:'DRAFT or POSTED.'},
       {name:'preferredTime',type:'String',req:true,desc:'Preferred run time (HH:mm).'},
+      {name:'targetDate',type:'String',req:false,desc:'(v62.0) Target date for invoice generation. Required when frequencyCadence is Once (yyyy-MM-dd).'},
+      {name:'targetDateOffset',type:'Integer',req:false,desc:'(v62.0) Days offset for target date. Required for Daily, Weekly, Monthly cadences.'},
+      {name:'invoiceDateOffset',type:'Integer',req:false,desc:'(v62.0) Days offset for invoice date. Required for Daily, Weekly, Monthly cadences.'},
+      {name:'isInvoiceDateFromRunDate',type:'Boolean',req:false,desc:'(v63.0) Whether the invoice date is calculated from the run date.'},
+      {name:'endDate',type:'String',req:false,desc:'(v63.0) End date for recurring schedulers (yyyy-MM-dd).'},
+      {name:'filterCriteria',type:'Object',req:false,desc:'(v62.0) Filter criteria to select billing schedules.'},
+      {name:'timezone',type:'String',req:false,desc:'(v62.0) Timezone for the scheduler (e.g. "America/Los_Angeles").'},
+      {name:'frequencyCadenceOptions',type:'Object',req:false,desc:'(v62.0) Options for the frequency cadence: recursOnDay (Integer), recursOnDate (Integer), shouldStartRunImmediately (Boolean).'},
     ],
-    request:'{\n  "schedulerName": "InvoiceScheduler",\n  "startDate": "2024-05-06",\n  "invoiceStatus": "POSTED",\n  "preferredTime": "00:45",\n  "frequencyCadence": "Once",\n  "frequencyCadenceOptions": {},\n  "timezone": "America/Los_Angeles",\n  "status": "Active"\n}',
+    request:'{\n  "schedulerName": "InvoiceScheduler",\n  "startDate": "2024-05-06",\n  "targetDate": "2024-05-06",\n  "invoiceStatus": "POSTED",\n  "preferredTime": "00:45",\n  "frequencyCadence": "Once",\n  "frequencyCadenceOptions": {},\n  "timezone": "America/Los_Angeles",\n  "status": "Active"\n}',
     response:'{\n  "schedulerId": "5BSSG0000004TwGGAU",\n  "schedulerName": "InvoiceScheduler",\n  "status": "Active",\n  "frequencyCadence": "Once",\n  "startDate": "2024-05-06",\n  "preferredTime": "00:45",\n  "lastRunDate": null,\n  "nextRunDate": "2024-05-06"\n}' },
 
   { id:'bill-3', category:'Billing', name:'Billing Arrangement', methods:['GET'],
@@ -1078,7 +1278,7 @@ export const ENDPOINTS: Endpoint[] = [
     page:2500,
     params:[{name:'billingScheduleIds',type:'String[]',req:true,desc:'Billing schedule IDs to recover.'}],
     request:'{\n  "billingScheduleIds": ["{{BILLING_SCHEDULE_ID}}"]\n}',
-    response:'{\n  "recoveredInvoiceId": "3ttSG00000002AAAA",\n  "invoiceNumber": "INV-2024-00002",\n  "status": "Success",\n  "recoveredBillingSchedules": [\n    {"billingScheduleId": "44bSG00000000XXYAY","previousStatus": "Error","recoveredStatus": "Draft"}\n  ]\n}' },
+    response:'{\n  "results": [\n    {\n      "billingScheduleId": "44bSG00000000XXYAY",\n      "status": "Success",\n      "invoiceId": "3ttSG00000002AAAA"\n    }\n  ]\n}' },
 
   { id:'bill-5', category:'Billing', name:'Create Billing Schedules for Orders', methods:['POST'],
     path:'/commerce/invoicing/billing-schedules/actions/create', version:'v62.0',
@@ -1089,15 +1289,15 @@ export const ENDPOINTS: Endpoint[] = [
     response:'{\n  "billingSchedules": [\n    {\n      "id": "44bSG00000001XXYAY",\n      "orderId": "801xx000003H1H9AAK",\n      "billingDay": 1,\n      "startDate": "2024-07-09",\n      "nextBillingDate": "2024-08-01",\n      "amount": 50.00,\n      "status": "Active"\n    }\n  ],\n  "status": "Success"\n}' },
 
   { id:'bill-6', category:'Billing', name:'Apply Credit Memo', methods:['POST'],
-    path:'/commerce/invoicing/credit-memos/actions/apply', version:'v60.0',
-    desc:'Adjust or correct already issued invoices by applying a credit memo.',
+    path:'/commerce/invoicing/credit-memos/{creditMemoId}/actions/apply', version:'v60.0',
+    desc:'Adjust or correct already issued invoices by applying a credit memo. The credit memo ID is a path parameter. The request body contains an applications array.',
     page:2484,
     params:[
-      {name:'creditMemoId',type:'String',req:true,desc:'Credit memo ID.'},
-      {name:'invoiceId',type:'String',req:true,desc:'Invoice to apply the memo to.'},
+      {name:'creditMemoId',type:'String',req:true,location:'path',desc:'ID of the credit memo to apply (path parameter).'},
+      {name:'applications',type:'Credit Memo Application Input[]',req:true,location:'body',desc:'List of invoice applications. Each entry: appliedToId (String, req — invoice ID), amount (Decimal, req), description (String, opt), effectiveDate (String, opt).'},
     ],
-    request:'{\n  "creditMemoId": "{{CREDIT_MEMO_ID}}",\n  "invoiceId": "{{INVOICE_ID}}"\n}',
-    response:'{\n  "creditMemoId": "0cMSG0000000001AAA",\n  "invoiceId": "3ttSG00000001AAAA",\n  "appliedAmount": 25.00,\n  "remainingCreditMemoBalance": 0,\n  "invoiceBalance": 125.00,\n  "status": "Applied"\n}' },
+    request:'{\n  "applications": [\n    {\n      "appliedToId": "{{INVOICE_ID}}",\n      "amount": 25.00,\n      "description": "Credit applied for returned goods",\n      "effectiveDate": "2024-07-09"\n    }\n  ]\n}',
+    response:'{\n  "creditMemoId": "0cMSG0000000001AAA",\n  "appliedAmount": 25.00,\n  "remainingCreditMemoBalance": 0.00,\n  "status": "Applied"\n}' },
 
   { id:'bill-7', category:'Billing', name:'Sequence Gap Reconciliation', methods:['POST'],
     path:'/connect/sequences/gap-reconciliation', version:'v65.0',
@@ -1112,11 +1312,61 @@ export const ENDPOINTS: Endpoint[] = [
 
   { id:'bill-8', category:'Billing', name:'Tax Calculation', methods:['POST'],
     path:'/commerce/taxes/actions/calculate', version:'v60.0',
-    desc:'Calculate tax for a transaction (raw tax engine — requires lineItems + taxEngineId). For invoice-level tax estimation use bill-est-tax instead.',
+    desc:'Calculate tax for a transaction using the raw tax engine. Requires lineItems, taxEngineId, taxType, and transactionDate. For invoice-level estimated tax use bill-est-tax instead.',
     page:2485,
-    params:[{name:'invoiceId',type:'String',req:true,location:'body',desc:'Invoice ID.'}],
-    request:'{\n  "invoiceId": "{{INVOICE_ID}}"\n}',
-    response:'{\n  "invoiceId": "3ttSG00000001AAAA",\n  "taxAmount": 13.50,\n  "taxLines": [\n    {"description": "State Tax 9%","taxableAmount": 150.00,"taxRate": 0.09,"taxAmount": 13.50}\n  ],\n  "status": "Calculated"\n}' },
+    params:[
+      {name:'lineItems',type:'Object[]',req:true,location:'body',desc:'Line items to calculate tax for. Each entry: amount (required), productCode, quantity, taxCode, taxIncluded, itemId.'},
+      {name:'taxEngineId',type:'String',req:true,location:'body',desc:'ID of the tax engine to use for calculation.'},
+      {name:'taxType',type:'String',req:true,location:'body',desc:'Type of tax calculation: Actual or Estimated.'},
+      {name:'transactionDate',type:'String',req:true,location:'body',desc:'Transaction date for tax calculation (ISO 8601).'},
+      {name:'addresses',type:'Object',req:false,location:'body',desc:'Shipping and billing addresses for tax jurisdiction resolution.'},
+      {name:'currencyIsoCode',type:'String',req:false,location:'body',desc:'Currency ISO code.'},
+      {name:'customerDetails',type:'Object',req:false,location:'body',desc:'Customer details (accountId, contactId, taxExemptionCertificate).'},
+      {name:'documentCode',type:'String',req:false,location:'body',desc:'Unique document code for this transaction.'},
+      {name:'effectiveDate',type:'String',req:false,location:'body',desc:'Effective date for tax rate lookup.'},
+      {name:'isCommit',type:'Boolean',req:false,location:'body',desc:'Whether to commit the transaction to the tax engine.'},
+      {name:'referenceDocumentCode',type:'String',req:false,location:'body',desc:'Reference document code for credit/refund scenarios.'},
+      {name:'referenceEntityId',type:'String',req:false,location:'body',desc:'ID of the Salesforce record (invoice, order) associated with this calculation.'},
+      {name:'shouldVoidTax',type:'Boolean',req:false,location:'body',desc:'(v65.0) Whether to void a previously committed tax transaction.'},
+      {name:'taxTransactionType',type:'String',req:false,location:'body',desc:'Type of transaction: SalesOrder, ReturnOrder, etc.'},
+    ],
+    request:'{\n  "lineItems": [\n    {\n      "amount": 150.00,\n      "productCode": "PROD-001",\n      "quantity": 1,\n      "itemId": "line-001",\n      "taxCode": "P0000000"\n    }\n  ],\n  "taxEngineId": "{{TAX_ENGINE_ID}}",\n  "taxType": "Actual",\n  "transactionDate": "2026-07-01",\n  "currencyIsoCode": "USD",\n  "referenceEntityId": "{{INVOICE_ID}}",\n  "addresses": {\n    "shipTo": {\n      "city": "San Francisco",\n      "country": "US",\n      "postalCode": "94105",\n      "state": "CA",\n      "street": "123 Market St"\n    }\n  },\n  "customerDetails": {\n    "accountId": "{{ACCOUNT_ID}}"\n  },\n  "isCommit": false\n}',
+    response:'{\n  "taxLines": [\n    {\n      "itemId": "line-001",\n      "description": "CA State Tax",\n      "taxableAmount": 150.00,\n      "taxRate": 0.09,\n      "taxAmount": 13.50,\n      "jurisdiction": "CA"\n    }\n  ],\n  "totalTaxAmount": 13.50,\n  "status": "Calculated"\n}',
+    examples:[
+      {
+        type:'estimate',
+        label:'1 — Estimated tax (no commit)',
+        desc:'Calculate tax without committing it to the external tax engine. Use isCommit:false for previewing tax amounts before posting an invoice. taxType:Estimated or Actual both work for previews.',
+        steps:[
+          'Replace TAX_ENGINE_ID with your Tax Engine record ID (starts with 0tE)',
+          'Set isCommit:false so the tax engine does not record a permanent document',
+          'referenceEntityId: ID of the invoice or order this tax is for'
+        ],
+        body:'{"lineItems":[{"amount":150.00,"productCode":"PROD-001","quantity":1,"itemId":"line-001"}],"taxEngineId":"{{TAX_ENGINE_ID}}","taxType":"Estimated","transactionDate":"2026-07-01","currencyIsoCode":"USD","isCommit":false}'
+      },
+      {
+        type:'actual-with-address',
+        label:'2 — Actual tax with address (jurisdiction resolution)',
+        desc:'Calculate and commit an actual tax document. Pass addresses.shipTo so the tax engine can resolve the correct jurisdiction. Include customerDetails.accountId for account-level tax exemptions.',
+        steps:[
+          'Fill in addresses.shipTo with the customer\'s shipping address',
+          'Set isCommit:true to create a committed tax document in the external engine',
+          'taxTransactionType: SalesOrder is the default for invoices'
+        ],
+        body:'{"lineItems":[{"amount":150.00,"productCode":"PROD-001","quantity":1,"itemId":"line-001","taxCode":"P0000000"}],"taxEngineId":"{{TAX_ENGINE_ID}}","taxType":"Actual","transactionDate":"2026-07-01","currencyIsoCode":"USD","referenceEntityId":"{{INVOICE_ID}}","addresses":{"shipTo":{"city":"San Francisco","country":"US","postalCode":"94105","state":"CA","street":"123 Market St"}},"customerDetails":{"accountId":"{{ACCOUNT_ID}}"},"isCommit":true,"taxTransactionType":"SalesOrder"}'
+      },
+      {
+        type:'void',
+        label:'3 — Void a committed tax transaction (v65.0+)',
+        desc:'Void a previously committed tax document. Use shouldVoidTax:true with referenceDocumentCode pointing to the original committed transaction code.',
+        steps:[
+          'Set shouldVoidTax:true',
+          'Set referenceDocumentCode to the documentCode of the original committed tax transaction',
+          'Set isCommit:false (no new commitment, just a void)'
+        ],
+        body:'{"lineItems":[],"taxEngineId":"{{TAX_ENGINE_ID}}","taxType":"Actual","transactionDate":"2026-07-01","currencyIsoCode":"USD","referenceDocumentCode":"{{ORIGINAL_DOCUMENT_CODE}}","shouldVoidTax":true,"isCommit":false}'
+      }
+    ] },
 
   { id:'bill-est-tax', category:'Billing', name:'Invoice Estimated Tax Calculation', methods:['POST'],
     path:'/commerce/invoicing/invoices/collection/actions/calculate-estimated-tax', version:'v63.0',
@@ -1144,7 +1394,7 @@ export const ENDPOINTS: Endpoint[] = [
     response:'{\n  "pricebookEntryId": "01uSG00000001AAAA",\n  "productId": "01tSa00000AzpIaIAJ",\n  "derivedPrice": 99.00,\n  "currencyCode": "USD"\n}' },
 
   { id:'price-11', category:'Pricing', name:'Price Context', methods:['POST'],
-    path:'/connect/core-pricing/price-contexts/{{CONTEXT_ID}}', version:'v60.0',
+    path:'/connect/core-pricing/price-contexts/{contextId}', version:'v60.0',
     desc:'Get pricing details for a specific context instance.',
     page:744,
     params:[
@@ -1153,7 +1403,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'procedureName',type:'String',req:false,location:'body',desc:'(v60.0) API name of the pricing procedure.'},
     ],
     request:'{\n  "procedureName": "MyPricingProcedure"\n}',
-    response:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "pricingResults": [],\n  "success": true\n}' },
+    response:'{\n  "contextId": "0HbSG00000001AAAA",\n  "pricingResults": [\n    {\n      "lineItemId": "0QASG00000001AAAA",\n      "netUnitPrice": 90.00,\n      "totalPrice": 90.00,\n      "currency": "USD"\n    }\n  ],\n  "success": true\n}' },
 
   { id:'price-12', category:'Pricing', name:'Pricing Data Sync', methods:['GET'],
     path:'/connect/core-pricing/sync/{pricingSyncOrigin}', version:'v60.0',
@@ -1164,7 +1414,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'pricingRecipeId',type:'String',req:false,location:'query',desc:'(v67.0) ID of the pricing recipe whose decision tables to sync.'},
     ],
     request:'No request body.',
-    response:'{\n  "success": true,\n  "syncedRecords": 42\n}' },
+    response:'{\n  "success": true\n}' },
 
   { id:'price-13', category:'Pricing', name:'Pricing Recipe', methods:['GET'],
     path:'/connect/core-pricing/recipe', version:'v60.0',
@@ -1172,7 +1422,7 @@ export const ENDPOINTS: Endpoint[] = [
     page:744,
     params:[],
     request:'No request body.',
-    response:'{\n  "recipeId": "0PrSG00000001AAAA",\n  "name": "Standard Pricing Recipe",\n  "mappings": []\n}' },
+    response:'{\n  "recipeId": "0PrSG00000001AAAA",\n  "name": "Standard Pricing Recipe",\n  "mappings": [\n    {\n      "mappingId": "0PmSG00000001AAAA",\n      "objectApiName": "QuoteLineItem",\n      "lookupTableId": "0TcSG00000001AAAA",\n      "pricingProcedure": "StandardPricingProcedure"\n    }\n  ]\n}' },
 
   { id:'price-14', category:'Pricing', name:'Pricing Recipe Mapping', methods:['POST'],
     path:'/connect/core-pricing/recipe/mapping', version:'v60.0',
@@ -1183,7 +1433,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'pricingRecipeLookupTableInputRepresentations',type:'Object[]',req:true,location:'body',desc:'(v60.0) Input of lookup tables for the recipe.'},
       {name:'pricingRecipeProcedureInputRepresentation',type:'Object',req:true,location:'body',desc:'(v60.0) Input of procedure used in the recipe.'},
     ],
-    request:'{\n  "recipeId": "{{RECIPE_ID}}",\n  "pricingRecipeLookupTableInputRepresentations": [],\n  "pricingRecipeProcedureInputRepresentation": {}\n}',
+    request:'{\n  "recipeId": "{{RECIPE_ID}}",\n  "pricingRecipeLookupTableInputRepresentations": [\n    {\n      "lookupTableId": "{{LOOKUP_TABLE_ID}}",\n      "objectApiName": "QuoteLineItem"\n    }\n  ],\n  "pricingRecipeProcedureInputRepresentation": {\n    "procedureApiName": "StandardPricingProcedure",\n    "procedureType": "Pricing"\n  }\n}',
     response:'{\n  "success": true,\n  "recipeId": "0PrSG00000001AAAA"\n}' },
 
   { id:'price-15', category:'Pricing', name:'Pricing Versioned Revision Details', methods:['POST'],
@@ -1203,7 +1453,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'additionalFieldsToValueMap',type:'Map<String,String>',req:false,location:'body',desc:'(v60.0) Additional entity-specific fields.'},
     ],
     request:'{\n  "adjustmentType": "percentage",\n  "adjustmentValue": "10",\n  "effectiveFrom": "2024-01-01",\n  "entityName": "AttributeBasedAdjustment",\n  "id": "{{RECORD_ID}}",\n  "priceAdjustmentScheduleId": "{{PRICE_ADJ_SCHEDULE_ID}}",\n  "productId": "{{PRODUCT_ID}}"\n}',
-    response:'{\n  "success": true,\n  "versionedRevisionDetails": []\n}' },
+    response:'{\n  "success": true,\n  "versionedRevisionDetails": [\n    {\n      "id": "{{RECORD_ID}}",\n      "adjustmentType": "percentage",\n      "adjustmentValue": "10",\n      "effectiveFrom": "2024-01-01",\n      "effectiveTo": null,\n      "productId": "{{PRODUCT_ID}}",\n      "priceAdjustmentScheduleId": "{{PRICE_ADJ_SCHEDULE_ID}}"\n    }\n  ]\n}' },
 
   { id:'price-16', category:'Pricing', name:'Pricing Process Execution', methods:['GET'],
     path:'/connect/core-pricing/pricing-process-execution/{executionId}', version:'v63.0',
@@ -1214,7 +1464,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'executionType',type:'String',req:false,location:'query',desc:'(v63.0) API_Execution, Discovery, Discovery_Line, Pricing, or Pricing_Line.'},
     ],
     request:'No request body.',
-    response:'{\n  "executionId": "{{EXECUTION_ID}}",\n  "status": "Success",\n  "startTime": "2024-07-09T10:00:00Z",\n  "endTime": "2024-07-09T10:00:01Z"\n}' },
+    response:'{\n  "executionId": "0YBSG00000001AAAA",\n  "status": "Success",\n  "executionType": "Pricing",\n  "procedureName": "StandardPricingProcedure",\n  "startTime": "2024-07-09T10:00:00Z",\n  "endTime": "2024-07-09T10:00:01Z",\n  "lineItemCount": 5,\n  "errorCount": 0\n}' },
 
   { id:'price-17', category:'Pricing', name:'Pricing Process Execution Line Items', methods:['GET'],
     path:'/connect/core-pricing/pricing-process-execution/lineitems/{executionId}/{executionType}', version:'v63.0',
@@ -1225,7 +1475,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'executionType',type:'String',req:true,location:'path',desc:'(v63.0) Pricing_Line or Discovery_Line.'},
     ],
     request:'No request body.',
-    response:'{\n  "executionId": "{{EXECUTION_ID}}",\n  "lineItems": []\n}' },
+    response:'{\n  "executionId": "0YBSG00000001AAAA",\n  "lineItems": [\n    {\n      "lineItemId": "0QASG00000001AAAA",\n      "status": "Success",\n      "netUnitPrice": 90.00,\n      "totalPrice": 180.00,\n      "quantity": 2\n    }\n  ]\n}' },
 
   { id:'price-18', category:'Pricing', name:'Procedure Plan Definition By ID', methods:['GET','PATCH','DELETE'],
     path:'/connect/procedure-plan-definitions/{procedurePlanDefinitionId}', version:'v62.0',
@@ -1235,7 +1485,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'procedurePlanDefinitionId',type:'String',req:true,location:'path',desc:'(v62.0) ID or developer name of the definition.'},
     ],
     request:'No request body for GET/DELETE. For PATCH: provide fields to update.',
-    response:'{\n  "id": "{{PROCEDURE_PLAN_DEFINITION_ID}}",\n  "name": "My Plan",\n  "developerName": "My_Plan"\n}' },
+    response:'{\n  "id": "1FNSG00000001AAAA",\n  "name": "My Plan",\n  "developerName": "My_Plan",\n  "processType": "Revenue Cloud",\n  "description": "Primary procedure plan",\n  "procedurePlanDefinitionVersions": [\n    {"id": "1CVSG00000001AAAA","developerName": "My_Plan_v1","active": true,"rank": 1}\n  ],\n  "success": true\n}' },
 
   { id:'price-19', category:'Pricing', name:'Procedure Plan Evaluation By Object', methods:['POST'],
     path:'/connect/procedure-plan-definitions/evaluate', version:'v62.0',
@@ -1249,7 +1499,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'subSectionType',type:'String[]',req:false,location:'body',desc:'(v62.0) Subsection names to evaluate.'},
     ],
     request:'{\n  "evaluationDate": "2024-07-09",\n  "idList": ["{{PROCEDURE_PLAN_DEFINITION_ID}}"]\n}',
-    response:'{\n  "success": true,\n  "evaluationResults": []\n}' },
+    response:'{\n  "success": true,\n  "evaluationResults": [\n    {\n      "procedurePlanDefinitionId": "1FNSG00000001AAAA",\n      "matchedVersionId": "1CVSG00000001AAAA",\n      "evaluationDate": "2024-07-09",\n      "effectiveProcedurePlanSections": ["Pricing","Fulfillment"]\n    }\n  ]\n}' },
 
   { id:'price-20', category:'Pricing', name:'Procedure Plan Evaluation By Name', methods:['POST'],
     path:'/connect/procedure-plan-definitions/evaluate/{procedurePlanDefinitionName}', version:'v62.0',
@@ -1264,7 +1514,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'subSectionType',type:'String[]',req:false,location:'body',desc:'(v62.0) Subsection names to evaluate.'},
     ],
     request:'{\n  "evaluationDate": "2024-07-09",\n  "idList": ["{{PROCEDURE_PLAN_DEFINITION_ID}}"]\n}',
-    response:'{\n  "success": true,\n  "evaluationResults": []\n}' },
+    response:'{\n  "success": true,\n  "evaluationResults": [\n    {\n      "procedurePlanDefinitionId": "1FNSG00000001AAAA",\n      "matchedVersionId": "1CVSG00000001AAAA",\n      "evaluationDate": "2024-07-09",\n      "effectiveProcedurePlanSections": ["Pricing","Fulfillment"]\n    }\n  ]\n}' },
 
   // Transaction — additional endpoints from PDF
   { id:'txn-8', category:'Transaction', name:'Place Order', methods:['POST'],
@@ -1295,7 +1545,75 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'groupRampAction',type:'String',req:false,location:'body',desc:'Action on group ramp segments: AddProducts, DeleteProducts, EditGroup, EditRampSchedule, DeleteSegment, or ConvertToNonRampedGroup (v65.0+).'},
     ],
     request:'// ── SCENARIO 1: Simple quote — new Quote + single QLI ──────────────────────\n{\n  "pricingPref": "System",\n  "graph": {\n    "graphId": "simpleQuote",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": {"type": "Quote", "method": "POST"},\n          "Name": "My Quote",\n          "Pricebook2Id": "{{PRICEBOOK_ID}}",\n          "CurrencyIsoCode": "USD"\n        }\n      },\n      {\n        "referenceId": "refQLI_0",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "POST"},\n          "QuoteId": "@{refQuote.id}",\n          "Product2Id": "{{PRODUCT_ID}}",\n          "PricebookEntryId": "{{PBE_ID}}",\n          "Quantity": 1,\n          "UnitPrice": 0\n        }\n      }\n    ]\n  }\n}\n\n// ── SCENARIO 2: Bundle quote — parent QLI + child QLIs + relationships + attrs ─\n{\n  "pricingPref": "System",\n  "catalogRatesPref": "Skip",\n  "configurationPref": {\n    "configurationMethod": "Skip",\n    "configurationOptions": {\n      "validateProductCatalog": true,\n      "validateAmendRenewCancel": true,\n      "executeConfigurationRules": true,\n      "addDefaultConfiguration": true\n    }\n  },\n  "graph": {\n    "graphId": "bundleQuote",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": {"type": "Quote", "method": "POST"},\n          "Name": "Bundle Quote",\n          "Pricebook2Id": "{{PRICEBOOK_ID}}",\n          "CurrencyIsoCode": "USD"\n        }\n      },\n      {\n        "referenceId": "refQLI_bundle",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "POST"},\n          "QuoteId": "@{refQuote.id}",\n          "Product2Id": "{{BUNDLE_PRODUCT_ID}}",\n          "PricebookEntryId": "{{BUNDLE_PBE_ID}}",\n          "Quantity": 1,\n          "UnitPrice": 0\n        }\n      },\n      {\n        "referenceId": "refQLI_comp_0",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "POST"},\n          "QuoteId": "@{refQuote.id}",\n          "Product2Id": "{{COMPONENT_PRODUCT_ID}}",\n          "PricebookEntryId": "{{COMPONENT_PBE_ID}}",\n          "Quantity": 1,\n          "UnitPrice": 0\n        }\n      },\n      {\n        "referenceId": "refRel_0",\n        "record": {\n          "attributes": {"type": "QuoteLineRelationship", "method": "POST"},\n          "MainQuoteLineId": "refQLI_bundle",\n          "AssociatedQuoteLineId": "refQLI_comp_0",\n          "AssociatedQuoteLinePricing": "IncludedInBundlePrice",\n          "ProductRelationshipTypeId": "{{PRODUCT_RELATIONSHIP_TYPE_ID}}",\n          "ProductRelatedComponentId": "{{PRODUCT_RELATED_COMPONENT_ID}}"\n        }\n      },\n      {\n        "referenceId": "refAttr_0",\n        "record": {\n          "attributes": {"type": "QuoteLineItemAttribute", "method": "POST"},\n          "QuoteLineItemId": "refQLI_bundle",\n          "AttributeDefinitionId": "{{ATTRIBUTE_DEFINITION_ID}}",\n          "AttributePicklistValueId": "{{ATTRIBUTE_PICKLIST_VALUE_ID}}"\n        }\n      }\n    ]\n  }\n}\n\n// ── SCENARIO 3: Add QLI to existing quote ───────────────────────────────────\n{\n  "pricingPref": "System",\n  "graph": {\n    "graphId": "addToQuote",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": {"type": "Quote", "method": "PATCH", "id": "{{EXISTING_QUOTE_ID}}"}\n        }\n      },\n      {\n        "referenceId": "refQLI_new",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "POST"},\n          "QuoteId": "{{EXISTING_QUOTE_ID}}",\n          "Product2Id": "{{PRODUCT_ID}}",\n          "PricebookEntryId": "{{PBE_ID}}",\n          "Quantity": 2,\n          "UnitPrice": 0\n        }\n      }\n    ]\n  }\n}\n\n// ── SCENARIO 4: Update quantity on existing QLI ─────────────────────────────\n{\n  "pricingPref": "Force",\n  "graph": {\n    "graphId": "patchQLI",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": {"type": "Quote", "method": "PATCH", "id": "{{EXISTING_QUOTE_ID}}"}\n        }\n      },\n      {\n        "referenceId": "refQLI_patch",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "PATCH", "id": "{{EXISTING_QLI_ID}}"},\n          "Quantity": 5\n        }\n      }\n    ]\n  }\n}\n\n// ── SCENARIO 5: Delete QLI (and its QLR first) ──────────────────────────────\n// NOTE: QLR DELETE must come BEFORE QLI DELETE — otherwise QLI delete is silently skipped\n{\n  "pricingPref": "Skip",\n  "graph": {\n    "graphId": "deleteQLI",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": {"type": "Quote", "method": "PATCH", "id": "{{EXISTING_QUOTE_ID}}"}\n        }\n      },\n      {\n        "referenceId": "refDelRel",\n        "record": {\n          "attributes": {"type": "QuoteLineRelationship", "method": "DELETE", "id": "{{EXISTING_QLR_ID}}"}\n        }\n      },\n      {\n        "referenceId": "refDelQLI",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "DELETE", "id": "{{EXISTING_QLI_ID}}"}\n        }\n      }\n    ]\n  }\n}\n\n// ── SCENARIO 6: Quote with Opportunity link ─────────────────────────────────\n// NOTE: AccountId is blocked by PST FLS — NEVER include it on Quote POST\n{\n  "pricingPref": "System",\n  "graph": {\n    "graphId": "quoteWithOpp",\n    "records": [\n      {\n        "referenceId": "refQuote",\n        "record": {\n          "attributes": {"type": "Quote", "method": "POST"},\n          "Name": "Opp Quote",\n          "Pricebook2Id": "{{PRICEBOOK_ID}}",\n          "CurrencyIsoCode": "USD",\n          "OpportunityId": "{{OPPORTUNITY_ID}}"\n        }\n      },\n      {\n        "referenceId": "refQLI_0",\n        "record": {\n          "attributes": {"type": "QuoteLineItem", "method": "POST"},\n          "QuoteId": "@{refQuote.id}",\n          "Product2Id": "{{PRODUCT_ID}}",\n          "PricebookEntryId": "{{PBE_ID}}",\n          "Quantity": 1,\n          "UnitPrice": 0\n        }\n      }\n    ]\n  }\n}',
-    response:'// ── SUCCESS response (always a JSON array) ──────────────────────────────────\n[\n  {\n    "isSuccess": true,\n    "salesTransactionId": "0Q0AY000001Kx2p0AC",\n    "errorResponse": []\n  }\n]\n\n// ── FAILURE — currency mismatch (PBE currency != Quote currency) ─────────────\n// Fix: set CurrencyIsoCode on Quote POST to match PBE currency\n[\n  {\n    "isSuccess": false,\n    "salesTransactionId": "",\n    "errorResponse": [\n      {\n        "errorCode": "FIELD_INTEGRITY_EXCEPTION",\n        "message": "The price book entry currency code is different than the one assigned to the Quote.: Price Book Entry ID",\n        "referenceId": "refQLI_0"\n      }\n    ]\n  }\n]\n\n// ── FAILURE — AccountId blocked by PST FLS ───────────────────────────────────\n// Fix: remove AccountId from Quote POST entirely — it is read-only on PST\n[\n  {\n    "isSuccess": false,\n    "salesTransactionId": "",\n    "errorResponse": [\n      {\n        "errorCode": "INVALID_FIELD_FOR_INSERT_UPDATE",\n        "message": "Unable to create/update fields: AccountId",\n        "referenceId": "refQuote"\n      }\n    ]\n  }\n]\n\n// ── FAILURE — custom validation rule on Opportunity ──────────────────────────\n// Fix: fill required fields on the Opportunity, or omit OpportunityId\n[\n  {\n    "isSuccess": false,\n    "salesTransactionId": "",\n    "errorResponse": [\n      {\n        "errorCode": "FIELD_CUSTOM_VALIDATION_EXCEPTION",\n        "message": "Provider, Commercial Zone and Reseller Name are mandatory on Opportunity to create a Quote.",\n        "referenceId": "refQuote"\n      }\n    ]\n  }\n]\n\n// ── FAILURE — async tracker (large transactions) ─────────────────────────────\n// For large payloads PST may return a tracker instead of inline result.\n// Poll /connect/revenue/transaction-management/sales-transactions/actions/place/{trackerId}/errors\n{\n  "contextDetails": {\n    "contextId": "",\n    "isBuiltInTransaction": false\n  },\n  "errorResponse": [],\n  "isSuccess": false,\n  "salesTransactionId": ""\n}' },
+    response:'[\n  {\n    "isSuccess": true,\n    "salesTransactionId": "0Q0AY000001Kx2p0AC",\n    "errorResponse": []\n  }\n]',
+    examples:[
+      {
+        type:'create-quote',
+        label:'1 — Create new quote with single product',
+        desc:'Minimum viable PST call: new Quote + one QuoteLineItem. IMPORTANT: always set CurrencyIsoCode on the Quote POST. Never include AccountId — it is blocked by PST FLS and will cause INVALID_FIELD_FOR_INSERT_UPDATE.',
+        steps:[
+          'Replace PRICEBOOK_ID with your PriceBook2 ID (starts with 01s)',
+          'Replace PRODUCT_ID with your Product2 ID (starts with 01t)',
+          'Replace PBE_ID with your PricebookEntry ID (starts with 01u)',
+          'CurrencyIsoCode must match the PBE currency — omitting it causes FIELD_INTEGRITY_EXCEPTION',
+          'NEVER include AccountId on Quote POST — it is read-only via PST'
+        ],
+        body:'{"pricingPref":"System","graph":{"graphId":"simpleQuote","records":[{"referenceId":"refQuote","record":{"attributes":{"type":"Quote","method":"POST"},"Name":"My Quote","Pricebook2Id":"{{PRICEBOOK_ID}}","CurrencyIsoCode":"USD"}},{"referenceId":"refQLI_0","record":{"attributes":{"type":"QuoteLineItem","method":"POST"},"QuoteId":"@{refQuote.id}","Product2Id":"{{PRODUCT_ID}}","PricebookEntryId":"{{PBE_ID}}","Quantity":1,"UnitPrice":0}}]}}'
+      },
+      {
+        type:'bundle-quote',
+        label:'2 — Bundle quote (parent + children + relationships + attributes)',
+        desc:'Create a Quote with a bundle product: parent QLI, component QLIs, QuoteLineRelationships, and a QuoteLineItemAttribute. QLI POST must come before QLR POST for that QLI. configurationPref.configurationMethod: Skip skips runtime config rules.',
+        steps:[
+          'Replace BUNDLE_PRODUCT_ID, BUNDLE_PBE_ID, COMPONENT_PRODUCT_ID, COMPONENT_PBE_ID with real IDs',
+          'Replace PRODUCT_RELATIONSHIP_TYPE_ID (0yo...) and PRODUCT_RELATED_COMPONENT_ID (0dS...) with IDs from your bundle structure',
+          'Replace ATTRIBUTE_DEFINITION_ID (0tj...) and ATTRIBUTE_PICKLIST_VALUE_ID (0v6...)',
+          'AssociatedQuoteLinePricing: IncludedInBundlePrice or NotIncludedInBundlePrice'
+        ],
+        body:'{"pricingPref":"System","configurationPref":{"configurationMethod":"Skip","configurationOptions":{"validateProductCatalog":true,"validateAmendRenewCancel":true,"executeConfigurationRules":true,"addDefaultConfiguration":true}},"graph":{"graphId":"bundleQuote","records":[{"referenceId":"refQuote","record":{"attributes":{"type":"Quote","method":"POST"},"Name":"Bundle Quote","Pricebook2Id":"{{PRICEBOOK_ID}}","CurrencyIsoCode":"USD"}},{"referenceId":"refQLI_bundle","record":{"attributes":{"type":"QuoteLineItem","method":"POST"},"QuoteId":"@{refQuote.id}","Product2Id":"{{BUNDLE_PRODUCT_ID}}","PricebookEntryId":"{{BUNDLE_PBE_ID}}","Quantity":1,"UnitPrice":0}},{"referenceId":"refQLI_comp_0","record":{"attributes":{"type":"QuoteLineItem","method":"POST"},"QuoteId":"@{refQuote.id}","Product2Id":"{{COMPONENT_PRODUCT_ID}}","PricebookEntryId":"{{COMPONENT_PBE_ID}}","Quantity":1,"UnitPrice":0}},{"referenceId":"refRel_0","record":{"attributes":{"type":"QuoteLineRelationship","method":"POST"},"MainQuoteLineId":"refQLI_bundle","AssociatedQuoteLineId":"refQLI_comp_0","AssociatedQuoteLinePricing":"IncludedInBundlePrice","ProductRelationshipTypeId":"{{PRODUCT_RELATIONSHIP_TYPE_ID}}","ProductRelatedComponentId":"{{PRODUCT_RELATED_COMPONENT_ID}}"}},{"referenceId":"refAttr_0","record":{"attributes":{"type":"QuoteLineItemAttribute","method":"POST"},"QuoteLineItemId":"refQLI_bundle","AttributeDefinitionId":"{{ATTRIBUTE_DEFINITION_ID}}","AttributePicklistValueId":"{{ATTRIBUTE_PICKLIST_VALUE_ID}}"}}]}}'
+      },
+      {
+        type:'add-to-quote',
+        label:'3 — Add a line item to an existing quote',
+        desc:'Add a new QLI to an existing quote. Include the Quote as PATCH (with its id) so PST knows which quote to update, then POST the new QLI with QuoteId pointing to the existing quote.',
+        steps:[
+          'Replace EXISTING_QUOTE_ID with the real quote ID',
+          'Replace PRODUCT_ID and PBE_ID with the new product to add'
+        ],
+        body:'{"pricingPref":"System","graph":{"graphId":"addToQuote","records":[{"referenceId":"refQuote","record":{"attributes":{"type":"Quote","method":"PATCH","id":"{{EXISTING_QUOTE_ID}}"},"CurrencyIsoCode":"USD"}},{"referenceId":"refQLI_new","record":{"attributes":{"type":"QuoteLineItem","method":"POST"},"QuoteId":"{{EXISTING_QUOTE_ID}}","Product2Id":"{{PRODUCT_ID}}","PricebookEntryId":"{{PBE_ID}}","Quantity":2,"UnitPrice":0}}]}}'
+      },
+      {
+        type:'update-qty',
+        label:'4 — Update quantity on existing QLI',
+        desc:'PATCH an existing QLI to change its quantity. Use pricingPref:Force to reprice immediately.',
+        steps:[
+          'Replace EXISTING_QUOTE_ID and EXISTING_QLI_ID with real IDs',
+          'Add any other fields to the PATCH record to update (UnitPrice, Description, etc.)'
+        ],
+        body:'{"pricingPref":"Force","graph":{"graphId":"patchQLI","records":[{"referenceId":"refQuote","record":{"attributes":{"type":"Quote","method":"PATCH","id":"{{EXISTING_QUOTE_ID}}"}}},{"referenceId":"refQLI_patch","record":{"attributes":{"type":"QuoteLineItem","method":"PATCH","id":"{{EXISTING_QLI_ID}}"},"Quantity":5}}]}}'
+      },
+      {
+        type:'delete-line',
+        label:'5 — Delete QLI (delete QLR before QLI)',
+        desc:'Delete a QLI and its QuoteLineRelationship. CRITICAL: QLR DELETE must come before QLI DELETE in the records array — if QLI is deleted first the QLR delete is silently skipped. Use pricingPref:Skip to avoid repricing.',
+        steps:[
+          'Replace EXISTING_QUOTE_ID, EXISTING_QLR_ID, EXISTING_QLI_ID with real IDs',
+          'QLR DELETE must be listed BEFORE QLI DELETE in the records array'
+        ],
+        body:'{"pricingPref":"Skip","graph":{"graphId":"deleteQLI","records":[{"referenceId":"refQuote","record":{"attributes":{"type":"Quote","method":"PATCH","id":"{{EXISTING_QUOTE_ID}}"}}},{"referenceId":"refDelRel","record":{"attributes":{"type":"QuoteLineRelationship","method":"DELETE","id":"{{EXISTING_QLR_ID}}"}}},{"referenceId":"refDelQLI","record":{"attributes":{"type":"QuoteLineItem","method":"DELETE","id":"{{EXISTING_QLI_ID}}"}}}]}}'
+      },
+      {
+        type:'order',
+        label:'6 — Create Order with OrderItem (Place Order equivalent)',
+        desc:'Create a new Order with OrderItems. Same structure as Quote scenario but uses Order/OrderItem types. Requires AccountId, EffectiveDate, Status, Pricebook2Id on the Order.',
+        steps:[
+          'Replace ACCOUNT_ID, PRICEBOOK_ID, PBE_ID, PRODUCT_ID with real IDs',
+          'Status must be "Draft" for new orders',
+          'EffectiveDate format: YYYY-MM-DDTHH:mm:ss'
+        ],
+        body:'{"pricingPref":"System","configurationPref":{"configurationMethod":"Skip"},"taxPref":"Skip","graph":{"graphId":"createOrder","records":[{"referenceId":"refOrder","record":{"attributes":{"type":"Order","method":"POST"},"AccountId":"{{ACCOUNT_ID}}","Pricebook2Id":"{{PRICEBOOK_ID}}","EffectiveDate":"2026-07-01T00:00:00","Status":"Draft","CurrencyIsoCode":"USD"}},{"referenceId":"refOrderItem","record":{"attributes":{"type":"OrderItem","method":"POST"},"OrderId":"@{refOrder.id}","Product2Id":"{{PRODUCT_ID}}","PricebookEntryId":"{{PBE_ID}}","Quantity":1,"UnitPrice":0}}]}}'
+      }
+    ] },
 
   { id:'txn-9b', category:'Transaction', name:'Retrieve Sales Transaction API Errors', methods:['GET'],
     path:'/connect/revenue/transaction-management/sales-transactions/actions/place/{trackerId}/errors', version:'v66.0',
@@ -1305,21 +1623,23 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'trackerId',type:'String',req:true,location:'path',desc:'ID of the async tracker returned by the Place Sales Transaction API (e.g. 16PRM0000004DBq).'},
       {name:'includeRetryablePayload',type:'Boolean',req:false,location:'query',desc:'Whether to return a subset of the original Place Sales Transaction API payload errors (true) or not (false). Default is false.'},
     ],
-    request:'',
-    response:'{\n  "errors": [\n    {\n      "referenceId": "refQuote",\n      "errorCode": "INVALID_API_INPUT",\n      "message": "Error details here"\n    }\n  ],\n  "rollbackedReferenceIds": ["refQuoteLine0"],\n  "retryablePayload": null\n}' },
+    request:'No request body. Pass includeRetryablePayload=true as a query param to get the retry payload.',
+    response:'{\n  "errors": [\n    {\n      "referenceId": "refQuote",\n      "errorCode": "INVALID_API_INPUT",\n      "message": "Error details here"\n    }\n  ],\n  "rolledBackReferenceIds": ["refQuoteLine0"],\n  "jobStatus": "CompletedWithError",\n  "retryablePayload": null\n}' },
 
   { id:'txn-10', category:'Transaction', name:'Clone Sales Transaction', methods:['POST'],
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker', version:'v64.0',
-    desc:'Clone a sales transaction.',
+    path:'/connect/rev/sales-transaction/actions/clone', version:'v64.0',
+    desc:'Clone a sales transaction. Both recordIds and salesTransactionId are required.',
     page:1381,
     params:[
-      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the sales transaction to clone.'},
+      {name:'recordIds',type:'String[]',req:true,location:'body',desc:'(v64.0) IDs of the quote line items or order items to clone.'},
+      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the sales transaction (quote or order) to clone.'},
+      {name:'options',type:'Object',req:false,location:'body',desc:'(v65.0) Optional clone options.'},
     ],
-    request:'{\n  "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n}',
-    response:'{\n  "requestId": "req-clone-001",\n  "salesTransactionId": "{{NEW_SALES_TRANSACTION_ID}}",\n  "success": true\n}' },
+    request:'{\n  "recordIds": ["{{QUOTE_LINE_ITEM_ID}}"],\n  "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n}',
+    response:'{\n  "requestId": "req-clone-001",\n  "salesTransactionId": "{{NEW_SALES_TRANSACTION_ID}}",\n  "success": true,\n  "errors": []\n}' },
 
   { id:'txn-11', category:'Transaction', name:'Read Sales Transaction', methods:['POST'],
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker', version:'v65.0',
+    path:'/connect/revenue/transaction-management/sales-transactions/actions/read', version:'v65.0',
     desc:'Read records from a sales transaction context.',
     page:1381,
     params:[
@@ -1329,7 +1649,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'filters',type:'Object[]',req:false,location:'body',desc:'(v67.0) Filter conditions to query context data.'},
     ],
     request:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "queryTags": ["Quote","QuoteLineItem"]\n}',
-    response:'{\n  "requestId": "req-read-001",\n  "records": [],\n  "success": true\n}' },
+    response:'{\n  "requestId": "req-read-001",\n  "records": [\n    {\n      "objectType": "Quote",\n      "id": "0Q0SG00000001AAAA",\n      "fields": {"Name": "My Quote","Status": "Draft","TotalAmount": 1500.00}\n    },\n    {\n      "objectType": "QuoteLineItem",\n      "id": "0QASG00000001AAAA",\n      "fields": {"Quantity": 2,"UnitPrice": 750.00}\n    }\n  ],\n  "success": true\n}' },
 
   { id:'txn-12', category:'Transaction', name:'Preview Approval', methods:['POST'],
     path:'/connect/advanced-approvals/approval-submission/preview', version:'v65.0',
@@ -1342,7 +1662,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'inputParameters',type:'Map<String, Object>',req:false,location:'body',desc:'List of input parameters to preview (v67.0+).'},
     ],
     request:'{\n  "flowApiName": "QuoteApprovals",\n  "objectApiName": "Quote",\n  "recordId": "{{QUOTE_ID}}",\n  "inputParameters": {\n    "approverComments": "Submitted for approval",\n    "requestType": "Standard"\n  }\n}',
-    response:'{\n  "requestId": "req-preview-001",\n  "approvalChainItems": [],\n  "success": true\n}' },
+    response:'{\n  "requestId": "req-preview-001",\n  "approvalChainItems": [\n    {\n      "approvalLevel": 1,\n      "approverName": "Sales Manager",\n      "approverId": "005SG00000001AAAA",\n      "condition": "TotalAmount > 10000",\n      "status": "Pending"\n    }\n  ],\n  "success": true\n}' },
 
   { id:'txn-13', category:'Transaction', name:'Initiate Swap', methods:['POST'],
     path:'/revenue/transaction-management/assets/actions/swap', version:'v67.0',
@@ -1352,51 +1672,82 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'swapStartDate',type:'String',req:true,location:'body',desc:'ISO 8601 datetime — effective date of the swap, e.g. "2026-06-14T00:00:00Z"'},
       {name:'outputRecordType',type:'String',req:true,location:'body',desc:'"Quote" or "Order"'},
       {name:'swapGroups.groups',type:'Object[]',req:true,location:'body',desc:'One group per asset. Each: referenceId, outGroup.swapAssets[].{assetId,quantity}, inGroup.{graphId,records[].record.{Product2Id,PricebookEntryId,UnitPrice,Quantity,StartDate}}'},
+      {name:'contractId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the contract associated with the swap.'},
+      {name:'opportunityId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the opportunity associated with the swap.'},
     ],
     request:'{\n  "swapStartDate": "2026-06-14T00:00:00Z",\n  "outputRecordType": "Quote",\n  "swapGroups": {\n    "groups": [\n      {\n        "referenceId": "SWAP-<assetId>",\n        "outGroup": {\n          "swapAssets": [{ "assetId": "<assetId>", "quantity": 1 }]\n        },\n        "inGroup": {\n          "graphId": "graph-<assetId>",\n          "records": [{\n            "referenceId": "line-<assetId>",\n            "record": {\n              "attributes": { "type": "QuoteLineItem", "method": "POST" },\n              "Product2Id":       "<replacementProductId>",\n              "PricebookEntryId": "<pbeId>",\n              "UnitPrice":        0,\n              "Quantity":         "1",\n              "StartDate":        "2026-06-14"\n            }\n          }]\n        }\n      }\n    ]\n  }\n}',
     response:'{\n  "success": true,\n  "salesTransactionId": "0Q0G5000004pXXXKAI"\n}' },
 
   { id:'txn-14', category:'Transaction', name:'Create Ramp Deal', methods:['POST'],
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker', version:'v63.0',
-    desc:'Create a ramp deal sales transaction.',
+    path:'/connect/revenue-management/sales-transaction-contexts/{resourceId}/actions/ramp-deal-create', version:'v62.0',
+    desc:'Create a ramp deal for a customer on a product. Applicable for line ramps only. To work with ramp deals for groups, use the Place Sales Transaction API with groupRampActions.',
     page:1381,
     params:[
-      {name:'contextDetails',type:'Object',req:false,location:'body',desc:'(v63.0) Context details. Required if graph not specified.'},
-      {name:'graph',type:'Object',req:false,location:'body',desc:'(v63.0) sObject graph. Required if contextDetails not specified.'},
-      {name:'groupRampAction',type:'String',req:false,location:'body',desc:'(v65.0) AddProducts, DeleteProducts, EditGroup, EditRampSchedule, DeleteSegment, or ConvertToNonRampedGroup.'},
-      {name:'pricingPref',type:'String',req:false,location:'body',desc:'(v63.0) Force, Skip, or System.'},
+      {name:'resourceId',type:'String',req:true,location:'path',desc:'(v62.0) ID of the quote line item, order item, or context.'},
+      {name:'transactionId',type:'String',req:true,location:'body',desc:'(v62.0) ID of the sales transaction (quote or order).'},
+      {name:'transactionLineId',type:'String',req:true,location:'body',desc:'(v62.0) Quote line item ID or order item ID that the price ramp is created for.'},
+      {name:'segmentType',type:'String',req:true,location:'body',desc:'(v62.0) Type of segment to create. Valid values: FREE_TRIAL, CUSTOM, YEARLY.'},
+      {name:'subscriptionTerm',type:'Integer',req:true,location:'body',desc:'(v62.0) Subscription length of the term-defined product.'},
+      {name:'subscriptionTermUnit',type:'String',req:true,location:'body',desc:'(v62.0) Unit of time for the subscription length. Valid value: MONTHS.'},
+      {name:'trialTerm',type:'Integer',req:false,location:'body',desc:'(v62.0) Length of the trial period, if any.'},
+      {name:'trialTermUnit',type:'String',req:false,location:'body',desc:'(v62.0) Unit of time for the trial period. Valid value: DAYS. Required if trialTerm is specified.'},
+      {name:'executionSettings',type:'Execution Settings Input',req:false,location:'body',desc:'(v62.0) Settings to run pricing or configuration rules. executePricing (Boolean), executeConfigRules (Boolean).'},
     ],
-    request:'{\n  "contextDetails": {},\n  "pricingPref": "System"\n}',
-    response:'{\n  "requestId": "req-ramp-001",\n  "salesTransactionId": "{{SALES_TRANSACTION_ID}}",\n  "success": true\n}' },
+    request:'{\n  "transactionId": "{{SALES_TRANSACTION_ID}}",\n  "transactionLineId": "{{QUOTE_LINE_ITEM_ID}}",\n  "subscriptionTerm": 14,\n  "subscriptionTermUnit": "MONTHS",\n  "trialTerm": 45,\n  "trialTermUnit": "DAYS",\n  "segmentType": "YEARLY",\n  "executionSettings": {\n    "executePricing": true,\n    "executeConfigRules": false\n  }\n}',
+    response:'{\n  "correlationId": "0QLDU0000002t0Z4AQ",\n  "errors": [],\n  "salesTransactionContext": {\n    "SalesTransaction": [\n      {\n        "businessObjectType": "Quote",\n        "id": "0Q0DU0000002f3d0AA",\n        "SalesTransactionName": "WarrantyPriceRampAR",\n        "Status": "Draft",\n        "TotalAmount": 99.98,\n        "SalesTransactionItem": [\n          {\n            "businessObjectType": "QuoteLineItem",\n            "id": "0QLDU0000002t0Z4AQ",\n            "ItemSegmentName": "Trial",\n            "ItemSegmentType": "FreeTrial",\n            "ItemIsPrimarySegment": true,\n            "StartDate": "2024-08-23T00:00:00.000Z",\n            "EndDate": "2024-09-22T00:00:00.000Z",\n            "Quantity": 2,\n            "UnitPrice": 49.99,\n            "NetUnitPrice": 0,\n            "Discount": 100,\n            "ItemRampIdentifier": "RDI5b5ce52b2db4484"\n          },\n          {\n            "businessObjectType": "QuoteLineItem",\n            "id": "0QLDU0000003CZ94AM",\n            "ItemSegmentName": "Year-1",\n            "ItemSegmentType": "Yearly",\n            "ItemIsPrimarySegment": false,\n            "StartDate": "2024-09-23T00:00:00.000Z",\n            "EndDate": "2025-08-22T00:00:00.000Z",\n            "Quantity": 2,\n            "UnitPrice": 49.99,\n            "NetUnitPrice": 49.99,\n            "TotalPrice": 99.98,\n            "ItemRampIdentifier": "RDI5b5ce52b2db4484"\n          }\n        ]\n      }\n    ]\n  },\n  "success": true,\n  "transactionContextId": "d3fd83b007418ce4980340313b40fd45665b194973486ebac3674c2b8002336f"\n}' },
 
   { id:'txn-15', category:'Transaction', name:'Update Ramp Deal', methods:['POST'],
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker', version:'v62.0',
-    desc:'Update an existing ramp deal by adding, deleting, or updating context nodes.',
+    path:'/connect/revenue-management/sales-transaction-contexts/{resourceId}/actions/ramp-deal-update', version:'v62.0',
+    desc:'Update a ramp deal when a segment has quantity, discount, or date changes. Applicable for line ramps only.',
     page:1381,
     params:[
-      {name:'addedNodes',type:'Object[]',req:true,location:'body',desc:'(v62.0) Context nodes to add.'},
-      {name:'deletedNodes',type:'Object[]',req:true,location:'body',desc:'(v62.0) Context nodes to delete.'},
-      {name:'updatedNodes',type:'Object[]',req:true,location:'body',desc:'(v62.0) Context nodes to update.'},
-      {name:'executionSettings',type:'Object',req:false,location:'body',desc:'(v62.0) Settings for pricing or configuration execution.'},
+      {name:'resourceId',type:'String',req:true,location:'path',desc:'(v62.0) ID of the context data instance (from Context Service API).'},
+      {name:'addedNodes',type:'Context Node Input[]',req:true,location:'body',desc:'(v62.0) Details of the nodes to be added. Each node has contextNodePath (String[] — hierarchy of IDs) and contextNode (Object — segment fields: Discount, Quantity, ItemSegmentName, StartDate, EndDate).'},
+      {name:'deletedNodes',type:'Context Node Input[]',req:true,location:'body',desc:'(v62.0) Details of the nodes to be deleted. Each node has contextNodePath.'},
+      {name:'updatedNodes',type:'Context Node Input[]',req:true,location:'body',desc:'(v62.0) Details of the nodes to be updated. Each node has contextNodePath and contextNode with fields to change.'},
+      {name:'executionSettings',type:'Execution Settings Input',req:false,location:'body',desc:'(v62.0) Settings to run pricing or configuration rules. executePricing (Boolean), executeConfigRules (Boolean).'},
     ],
-    request:'{\n  "addedNodes": [],\n  "deletedNodes": [],\n  "updatedNodes": []\n}',
-    response:'{\n  "requestId": "req-ramp-upd-001",\n  "success": true\n}' },
+    request:'{\n  "executionSettings": {\n    "executePricing": true,\n    "executeConfigRules": false\n  },\n  "addedNodes": [\n    {\n      "contextNodePath": [\n        "{{CONTEXT_ID}}",\n        "{{SALES_TRANSACTION_ID}}",\n        "{{NEW_LINE_UUID}}"\n      ],\n      "contextNode": {\n        "Discount": 10,\n        "Quantity": 5,\n        "ItemSegmentName": "Year 5",\n        "StartDate": "2024-09-07T00:00:00.000Z",\n        "EndDate": "2025-09-07T00:00:00.000Z"\n      }\n    }\n  ],\n  "updatedNodes": [\n    {\n      "contextNodePath": [\n        "{{CONTEXT_ID}}",\n        "{{SALES_TRANSACTION_ID}}",\n        "{{QUOTE_LINE_ITEM_ID}}"\n      ],\n      "contextNode": {\n        "Discount": 10,\n        "Quantity": 5\n      }\n    }\n  ],\n  "deletedNodes": [\n    {\n      "contextNodePath": [\n        "{{CONTEXT_ID}}",\n        "{{SALES_TRANSACTION_ID}}",\n        "{{QUOTE_LINE_ITEM_ID}}"\n      ]\n    }\n  ]\n}',
+    response:'{\n  "correlationId": "0QLDU0000002t0Z4AQ",\n  "errors": [],\n  "salesTransactionContext": {\n    "SalesTransaction": [\n      {\n        "businessObjectType": "Quote",\n        "id": "0Q0DU0000002f3d0AA",\n        "Status": "Draft",\n        "TotalAmount": 99.98,\n        "SalesTransactionItem": [\n          {\n            "businessObjectType": "QuoteLineItem",\n            "id": "0QLDU0000002t0Z4AQ",\n            "ItemSegmentName": "Year 5",\n            "Discount": 10,\n            "Quantity": 5,\n            "ItemRampIdentifier": "RDI5b5ce52b2db4484"\n          }\n        ]\n      }\n    ]\n  },\n  "success": true,\n  "transactionContextId": "d3fd83b007418ce4980340313b40fd45665b194973486ebac3674c2b8002336f"\n}' },
 
-  { id:'txn-16', category:'Transaction', name:'Create Supplemental Transaction', methods:['POST'],
-    path:'/services/data/v67.0/sobjects/AsyncOperationTracker', version:'v64.0',
-    desc:'Create a supplemental transaction from an existing sales transaction.',
+  { id:'txn-16', category:'Transaction', name:'Place Supplemental Transaction', methods:['POST'],
+    path:'/connect/rev/sales-transaction/actions/place-supplemental-transaction', version:'v64.0',
+    desc:'Create a supplemental order or change orders after they are submitted for processing, such as during the fulfillment process. The original order must not be assetized or billed.',
     page:1381,
     params:[
-      {name:'relatedSalesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the original sales transaction.'},
-      {name:'pricingPref',type:'String',req:false,location:'body',desc:'(v64.0) Force, Skip, or System.'},
-      {name:'supplementalGraph',type:'Object',req:false,location:'body',desc:'(v64.0) sObject graph with additional changes.'},
+      {name:'relatedSalesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the original sales transaction upon which a supplemental transaction is created.'},
+      {name:'pricingPref',type:'String',req:false,location:'body',desc:'(v64.0) Pricing preference. Valid values: Force (enforces pricing), Skip (skips pricing), System (determines if pricing is required).'},
+      {name:'supplementalGraph',type:'Object Graph Input',req:false,location:'body',desc:'(v64.0) sObject graph with additional changes to ingest. The attribute HTTP method must be PATCH, and the attribute ID must be the ID of the original order or order item to supplement.'},
     ],
-    request:'{\n  "relatedSalesTransactionId": "{{SALES_TRANSACTION_ID}}",\n  "pricingPref": "System"\n}',
-    response:'{\n  "requestId": "req-supp-001",\n  "supplementalTransactionId": "{{SUPPLEMENTAL_TRANSACTION_ID}}",\n  "success": true\n}' },
+    request:'{\n  "relatedSalesTransactionId": "{{SALES_TRANSACTION_ID}}",\n  "pricingPref": "System",\n  "supplementalGraph": {\n    "graphId": "1",\n    "records": [\n      {\n        "referenceId": "refOrder",\n        "record": {\n          "attributes": {\n            "type": "Order",\n            "method": "PATCH",\n            "id": "{{SALES_TRANSACTION_ID}}"\n          },\n          "EffectiveDate": "2025-03-01",\n          "QuoteId": "{{QUOTE_ID}}"\n        }\n      },\n      {\n        "referenceId": "refOrderItem",\n        "record": {\n          "attributes": {\n            "type": "OrderItem",\n            "method": "PATCH",\n            "id": "{{ORDER_ITEM_ID}}"\n          },\n          "QuoteLineItemId": "{{QUOTE_LINE_ITEM_ID}}"\n        }\n      }\n    ]\n  }\n}',
+    response:'{\n  "requestId": "16PRM0000004DBq",\n  "statusURL": "/services/data/v67.0/sobjects/AsyncOperationTracker/16PRM0000004DBq",\n  "orderId": "{{SALES_TRANSACTION_ID}}",\n  "supplementalTransactionId": "{{SUPPLEMENTAL_TRANSACTION_ID}}",\n  "success": true,\n  "errors": []\n}' },
+
+  { id:'txn-17', category:'Transaction', name:'View Ramp Deal', methods:['GET'],
+    path:'/connect/revenue-management/sales-transaction-contexts/{resourceId}/actions/ramp-deal-view', version:'v62.0',
+    desc:'View a ramp deal related to a quote line item or an order item. Applicable for line ramps only.',
+    page:1381,
+    params:[
+      {name:'resourceId',type:'String',req:true,location:'path',desc:'(v62.0) ID of the quote line item, order item, or context.'},
+      {name:'transactionId',type:'String',req:true,location:'query',desc:'(v62.0) ID of the quote or order required to hydrate the context and retrieve the quote lines.'},
+      {name:'transactionLineId',type:'String',req:true,location:'query',desc:'(v62.0) ID of the quote or order line required to retrieve the segmented details.'},
+    ],
+    request:'No request body. Pass transactionId and transactionLineId as query params.',
+    response:'{\n  "correlationId": "0QLDU0000002t0Z4AQ",\n  "errors": [],\n  "salesTransactionContext": {\n    "SalesTransaction": [\n      {\n        "businessObjectType": "Quote",\n        "id": "0Q0DU0000002f3d0AA",\n        "SalesTransactionName": "WarrantyPriceRampAR",\n        "Status": "Draft",\n        "TotalAmount": 99.98,\n        "SalesTransactionItem": [\n          {\n            "businessObjectType": "QuoteLineItem",\n            "id": "0QLDU0000002t0Z4AQ",\n            "ItemSegmentName": "Trial",\n            "ItemSegmentType": "FreeTrial",\n            "ItemIsPrimarySegment": true,\n            "StartDate": "2024-08-23T00:00:00.000Z",\n            "EndDate": "2024-09-22T00:00:00.000Z",\n            "Quantity": 2,\n            "Discount": 100,\n            "NetUnitPrice": 0,\n            "ItemRampIdentifier": "RDI5b5ce52b2db4484"\n          },\n          {\n            "businessObjectType": "QuoteLineItem",\n            "id": "0QLDU0000003CZ94AM",\n            "ItemSegmentName": "Year-1",\n            "ItemSegmentType": "Yearly",\n            "ItemIsPrimarySegment": false,\n            "StartDate": "2024-09-23T00:00:00.000Z",\n            "EndDate": "2025-08-22T00:00:00.000Z",\n            "Quantity": 2,\n            "UnitPrice": 49.99,\n            "TotalPrice": 99.98,\n            "ItemRampIdentifier": "RDI5b5ce52b2db4484"\n          }\n        ]\n      }\n    ]\n  },\n  "success": true,\n  "transactionContextId": "d3fd83b007418ce4980340313b40fd45665b194973486ebac3674c2b8002336f"\n}' },
+
+  { id:'txn-18', category:'Transaction', name:'Delete Ramp Deal', methods:['POST'],
+    path:'/connect/revenue-management/sales-transaction-contexts/{resourceId}/actions/ramp-deal-delete', version:'v62.0',
+    desc:'Delete a ramp deal to convert a ramped product back to a single quote line item or order item. Applicable for line ramps only.',
+    page:1381,
+    params:[
+      {name:'resourceId',type:'String',req:true,location:'path',desc:'(v62.0) ID of the context.'},
+      {name:'rampDealIds',type:'String[]',req:true,location:'body',desc:'(v62.0) Ramp identifiers on the quote line item or order item to delete.'},
+    ],
+    request:'{\n  "rampDealIds": [\n    "{{SALES_TRANSACTION_ID}}",\n    "{{QUOTE_LINE_ITEM_ID}}"\n  ]\n}',
+    response:'{\n  "correlationId": "0QLDU0000002t0Z4AQ",\n  "errors": [],\n  "salesTransactionContext": {\n    "SalesTransaction": [\n      {\n        "businessObjectType": "Quote",\n        "id": "0Q0DU0000002f3d0AA",\n        "Status": "Draft",\n        "SalesTransactionItem": [\n          {\n            "businessObjectType": "QuoteLineItem",\n            "id": "0QLDU0000002t0Z4AQ",\n            "ItemIsPrimarySegment": true,\n            "ItemRampIdentifier": null\n          }\n        ]\n      }\n    ]\n  },\n  "success": true,\n  "transactionContextId": "d3fd83b007418ce4980340313b40fd45665b194973486ebac3674c2b8002336f"\n}' },
 
   // Configurator — canonical paths from official docs
   { id:'cfg-5', category:'Configurator', name:'Configuration Load Instance', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/load-instance', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/load-instance', version:'v64.0',
     desc:'Create a session for the product configuration instance using the transaction ID. Get the session ID that includes the results of actions such as configuration rules, qualification rules, and pricing management.',
     page:955,
     params:[
@@ -1405,11 +1756,35 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'contextMappingId',type:'String',req:false,desc:'ID of the context mapping record.'},
       {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules. accountId (String v60) — account ID. contactId (String v60) — contact ID. contextId (String v60) — ID of an existing session context.'},
     ],
-    request:'{\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateAmendRenewCancel": true,\n    "validateProductCatalog": true\n  },\n  "qualificationContext": {\n    "accountId": "001DU000001nHUGYA2"\n  },\n  "transactionId": "0Q0DU0000000XoN0AU"\n}',
-    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "status": "InProgress"\n}' },
+    request:'{\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateAmendRenewCancel": true,\n    "validateProductCatalog": true,\n    "returnProductCatalogData": false\n  },\n  "qualificationContext": {\n    "accountId": "001DU000001nHUGYA2"\n  },\n  "transactionId": "0Q0DU0000000XoN0AU"\n}',
+    response:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "status": "InProgress"\n}',
+    examples:[
+      {
+        type:'quote-session',
+        label:'1 — Load session for a Quote',
+        desc:'First call in a programmatic configurator flow. Pass the Quote ID as transactionId. Response contextId is used for all subsequent add-nodes/update-nodes/delete-nodes/save-instance calls. Set returnProductCatalogData:false when not using the UI — it reduces response payload size.',
+        steps:[
+          'Replace transactionId with your Quote ID (starts with 0Q0)',
+          'Set accountId in qualificationContext for per-account qualification rules',
+          'Save the contextId from the response — every follow-up call needs it',
+          'Set returnProductCatalogData:false when calling from Apex/API (not UI)'
+        ],
+        body:'{"transactionId":"{{QUOTE_ID}}","configuratorOptions":{"addDefaultConfiguration":true,"executeConfigurationRules":true,"executePricing":true,"qualifyAllProductsInTransaction":true,"validateAmendRenewCancel":true,"validateProductCatalog":true,"returnProductCatalogData":false},"qualificationContext":{"accountId":"{{ACCOUNT_ID}}"}}'
+      },
+      {
+        type:'order-session',
+        label:'2 — Load session for an Order',
+        desc:'Same as Quote but transactionId is an Order ID. Used for order amendment configurator flows.',
+        steps:[
+          'Replace transactionId with your Order ID (starts with 801)',
+          'Save the contextId for follow-up calls'
+        ],
+        body:'{"transactionId":"{{ORDER_ID}}","configuratorOptions":{"addDefaultConfiguration":true,"executeConfigurationRules":true,"executePricing":true,"validateAmendRenewCancel":true,"validateProductCatalog":true,"returnProductCatalogData":false},"qualificationContext":{"accountId":"{{ACCOUNT_ID}}"}}'
+      }
+    ] },
 
   { id:'cfg-6', category:'Configurator', name:'Configuration Set Instance', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/set-instance', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/set-instance', version:'v64.0',
     desc:'Set a product configuration instance. Use this when the configuration instance lives in an external database (not Salesforce) and the product catalog data is in Salesforce. contextMappingId and transaction are both required.',
     page:955,
     params:[
@@ -1419,10 +1794,10 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "addDefaultConfiguration": true,\n    "executeConfigurationRules": true,\n    "executePricing": false,\n    "qualifyAllProductsInTransaction": false,\n    "validateAmendRenewCancel": false,\n    "validateProductCatalog": false\n  },\n  "contextMappingId": "11jEk000017YdyUIAS",\n  "qualificationContext": {\n    "accountId": "001DU000001nHUGYA2"\n  },\n  "transaction": "{\\"Quote\\":[{\\"QuoteLineItem\\":[{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_1\\"},{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_2\\"},{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_3\\"},{\\"businessObjectType\\":\\"QuoteLineItem\\",\\"id\\":\\"qli_4\\"}],\\"businessObjectType\\":\\"Quote\\",\\"id\\":\\"aJSdm0000003m3JGAQ\\"}]}"\n}',
-    response:'// Response body for Configuration Set Instance\n// See Configuration Set Instance output type.\n// Returns contextId of the created session on success.\n{\n  "errors": [],\n  "success": true,\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77"\n}' },
+    response:'{\n  "errors": [],\n  "success": true,\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77"\n}' },
 
   { id:'cfg-7', category:'Configurator', name:'Configurator Delete Nodes', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/delete-nodes', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/delete-nodes', version:'v64.0',
     desc:'Delete nodes from a product configuration.',
     page:955,
     params:[
@@ -1432,10 +1807,23 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationContext',type:'User Context Input',req:false,desc:'Context for qualification rules: accountId (String), contactId (String), contextId (String).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "deletedNodes": [\n    {\n      "path": ["0Q0DE000000ISHJs81", "0QLDE000000IBXw4AO"]\n    }\n  ]\n}',
-    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}',
+    examples:[
+      {
+        type:'delete-line',
+        label:'1 — Remove a QLI from a bundle',
+        desc:'Delete a specific QuoteLineItem node from the active configuration. The path array must contain [quoteId, qliId] — the same 2-element path used in add-nodes. After this call the deleted node is gone; call save-instance to persist.',
+        steps:[
+          'Get contextId from the prior load-instance or configure call',
+          'path[0] = Quote ID, path[1] = QuoteLineItem ID to delete',
+          'Call save-instance after to persist the deletion'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","deletedNodes":[{"path":["{{QUOTE_ID}}","{{QLI_ID}}"]}],"configuratorOptions":{"executePricing":true,"executeConfigurationRules":true,"addDefaultConfiguration":true,"validateProductCatalog":true,"returnProductCatalogData":false}}'
+      }
+    ] },
 
   { id:'cfg-8', category:'Configurator', name:'Configurator Update Nodes', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/update-nodes', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/update-nodes', version:'v64.0',
     desc:'Update one or more nodes in a product configuration context. Use updatedAttributes to change any field on a Sales Transaction context item — Quantity, UnitPrice, custom fields, etc.',
     page:955,
     params:[
@@ -1445,20 +1833,58 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "updatedNodes": [\n    {\n      "path": ["0Q0DE000000ISHJs81", "0QLDE000000IBXw4AO"],\n      "updatedAttributes": {\n        "Quantity": 5\n      }\n    }\n  ]\n}',
-    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}',
+    examples:[
+      {
+        type:'update-quantity',
+        label:'1 — Update QLI Quantity',
+        desc:'Change the quantity of a QuoteLineItem already in the configuration. The updatedAttributes map accepts any Sales Transaction context field — Quantity, UnitPrice, custom fields, or QuoteLineItemAttribute values.',
+        steps:[
+          'Get contextId from the prior load-instance or configure call',
+          'path[0] = Quote ID, path[1] = QuoteLineItem ID',
+          'Set Quantity to the new value in updatedAttributes',
+          'Call save-instance after to persist the change'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","updatedNodes":[{"path":["{{QUOTE_ID}}","{{QLI_ID}}"],"updatedAttributes":{"Quantity":5}}],"configuratorOptions":{"executePricing":true,"executeConfigurationRules":true,"addDefaultConfiguration":true,"validateProductCatalog":true,"returnProductCatalogData":false}}'
+      },
+      {
+        type:'update-attribute',
+        label:'2 — Update a product attribute value',
+        desc:'Update a specific QuoteLineItemAttribute — e.g. change Color from "Blue" to "Red". The path drills into the attribute node: [quoteId, qliId, qliAttrId]. Use the attributePicklistValueId from the catalog for picklist attributes.',
+        steps:[
+          'path[0] = Quote ID, path[1] = QLI ID, path[2] = QuoteLineItemAttribute ID',
+          'updatedAttributes key = AttributeKey or the specific field; value = new value or attributePicklistValueId',
+          'Call save-instance after to persist'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","updatedNodes":[{"path":["{{QUOTE_ID}}","{{QLI_ID}}","{{QLIA_ID}}"],"updatedAttributes":{"AttributeValue":"Red","AttributePicklistValueId":"{{ATTR_PICKLIST_VALUE_ID}}"}}],"configuratorOptions":{"executePricing":true,"executeConfigurationRules":true,"addDefaultConfiguration":true,"returnProductCatalogData":false}}'
+      }
+    ] },
 
   { id:'cfg-9', category:'Configurator', name:'Configuration Save Instance', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/save-instance', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/save-instance', version:'v64.0',
     desc:'Save a configuration instance after a successful product configuration. Saves changes to the source (e.g. quote line item) after a successful configuration.',
     page:955,
     params:[
       {name:'contextId',type:'String',req:true,desc:'Transaction context ID of the product configuration instance that\'s to be saved.'},
     ],
     request:'{\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77"\n}',
-    response:'// Success\n{\n  "errors": [],\n  "success": true\n}\n\n// Error\n{\n  "errors": [{\n    "code": "INTERNAL_SERVER_ERROR",\n    "message": "CONTEXT_NOT_FOUND"\n  }],\n  "success": false\n}' },
+    response:'// Success\n{\n  "errors": [],\n  "success": true\n}\n\n// Error\n{\n  "errors": [{\n    "code": "INTERNAL_SERVER_ERROR",\n    "message": "CONTEXT_NOT_FOUND"\n  }],\n  "success": false\n}',
+    examples:[
+      {
+        type:'save-quote-config',
+        label:'1 — Persist configuration changes to Quote',
+        desc:'Final step in any programmatic configurator flow. After all add-nodes/update-nodes/delete-nodes calls are complete, call save-instance to write the configuration back to the Quote and QuoteLineItem records. The context is released after save.',
+        steps:[
+          'Only call this after all add/update/delete-nodes calls are done',
+          'The contextId is released after save — do not reuse it',
+          'Check errors[] in response before treating as success'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}"}'
+      }
+    ] },
 
   { id:'cfg-10', category:'Configurator', name:'Configuration Get Instance', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/get-instance', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/get-instance', version:'v64.0',
     desc:'Fetch the full JSON representation of a product configuration instance by contextId. Use the response to display configuration details on the Salesforce UI or to save the instance to an external system.',
     page:955,
     params:[
@@ -1468,7 +1894,7 @@ export const ENDPOINTS: Endpoint[] = [
     response:'// Success\n{\n  "errors": [],\n  "success": true,\n  "transaction": {\n    "id": "0Q0DU0000000XoN0AU",\n    "salesTransactionItems": [\n      {\n        "id": "0QLDU000000XYZABCD",\n        "businessObjectType": "QuoteLineItem",\n        "Product": "01txx0000006i2aAAA",\n        "Quantity": 12,\n        "UnitPrice": 144.99,\n        "SalesTransactionItemAttribute": [\n          {\n            "id": "0zuxx000000000FAAQ",\n            "AttributeKey": "0tjxx0000000001AAA",\n            "AttributeValue": "1080p Built-in Display",\n            "businessObjectType": "QuoteLineItemAttribute"\n          }\n        ]\n      }\n    ]\n  }\n}' },
 
   { id:'cfg-11', category:'Configurator', name:'Product Set Quantity', methods:['POST'],
-    path:'/connect/cpq/configurator/actions/set-product-quantity', version:'v60.0',
+    path:'/connect/cpq/configurator/actions/set-product-quantity', version:'v64.0',
     desc:'Set the quantity of a product through the runtime system.',
     page:955,
     params:[
@@ -1479,10 +1905,24 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'qualificationContext',type:'User Context Input',req:false,desc:'User context for qualification rules: accountId (String), contactId (String), contextId (String — existing session).'},
     ],
     request:'{\n  "configuratorOptions": {\n    "executePricing": true,\n    "returnProductCatalogData": true,\n    "qualifyAllProductsInTransaction": true,\n    "validateProductCatalog": true,\n    "validateAmendRenewCancel": true,\n    "executeConfigurationRules": true,\n    "addDefaultConfiguration": true\n  },\n  "qualificationContext": {\n    "accountId": "001xx0000000001AAA",\n    "contactId": "003xx00000000D7AAI"\n  },\n  "contextId": "008d27d7-e004-4906-a949-ee7d7c323c77",\n  "quantity": 20,\n  "transactionLinePath": "Quote.QuoteLineItem.Quantity"\n}',
-    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}' },
+    response:'{\n  "configuratorMessages": {},\n  "configuratorUITreatments": [\n    {\n      "details": {\n        "attributeId": "0tjxx0000000007AAA",\n        "prcId": "0dSxx0000000007EAA",\n        "stiId": "0QLxx0000004CU0GAM",\n        "attributePicklistValueId": "0v6xx0000000005AAA"\n      },\n      "uiTreatmentScope": "Bundle",\n      "uiTreatmentTarget": "Attribute_Picklist_Value",\n      "uiTreatmentType": "Hide"\n    },\n    {\n      "details": {\n        "stiId": "ref_f0f2da7b_c431_482d_bf4b_599052f3a2e1"\n      },\n      "uiTreatmentScope": "Product",\n      "uiTreatmentTarget": "Component",\n      "uiTreatmentType": "Disable"\n    }\n  ],\n  "errors": [],\n  "productQualifications": {\n    "01tDU000000EOTCYA4": { "isQualified": true }\n  },\n  "success": true\n}',
+    examples:[
+      {
+        type:'set-qty-on-line',
+        label:'1 — Set quantity on a QuoteLineItem',
+        desc:'Set product quantity directly via the configurator runtime. Equivalent to update-nodes with Quantity but uses a dedicated path-based selector. The transactionLinePath must resolve to the specific QLI — pass the full path from Quote root to the QLI.',
+        steps:[
+          'Get contextId from the prior load-instance call',
+          'transactionLinePath uses dot notation from the transaction root: e.g. "Quote.QuoteLineItem.Quantity"',
+          'quantity is an Integer',
+          'Call save-instance after to persist'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","quantity":5,"transactionLinePath":"Quote.QuoteLineItem.Quantity","configuratorOptions":{"executePricing":true,"executeConfigurationRules":true,"addDefaultConfiguration":true,"returnProductCatalogData":false}}'
+      }
+    ] },
 
   { id:'cfg-12', category:'Configurator', name:'Run Config Rules (Invocable)', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/runConfigRules', version:'v65.0',
+    path:'/services/data/v67.0/actions/standard/runConfigRules', version:'v67.0',
     desc:'Invocable action that runs configuration rules for a quote or order. Decouples rule execution from configuration so rules can be run independently or from a Flow. Returns visibilityRules, messageRules, productRecommendationRules, and a transactionContextId. Available from v65.0.',
     page:979,
     params:[
@@ -1494,40 +1934,40 @@ export const ENDPOINTS: Endpoint[] = [
 
   // DRO — Dynamic Revenue Orchestrator (entirely new category)
   { id:'dro-1', category:'DRO', name:'Decompose Sales Transaction', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/decomposeSalesTransaction', version:'v66.0',
-    desc:'Decompose and submit a sales transaction to the fulfillment system (v66.0). Use Orchestrate Sales Transaction for v67.0.',
+    path:'/services/data/v67.0/actions/standard/decomposeSalesTransaction', version:'v67.0',
+    desc:'Decompose and submit a sales transaction to the fulfillment system (available from v67.0). Use Orchestrate Sales Transaction as the current preferred action.',
     page:1877,
     params:[
-      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v66.0) ID of the sales transaction to submit.'},
-      {name:'fulfillmentAdapter',type:'String',req:true,location:'body',desc:'(v66.0) StandardOrder or GenericAdapter.'},
-      {name:'allowOverrideOfPointOfNoReturn',type:'Boolean',req:false,location:'body',desc:'(v66.0) Override point-of-no-return setting. Default: false.'},
-      {name:'fulfillmentPriority',type:'String',req:false,location:'body',desc:'(v66.0) High, Bulk, or Default.'},
-      {name:'hydratedContextId',type:'String',req:false,location:'body',desc:'(v66.0) ID of the hydrated context.'},
-      {name:'intakeRequestType',type:'String',req:false,location:'body',desc:'(v66.0) Synchronous or Asynchronous.'},
-      {name:'priorityLimitAction',type:'String',req:false,location:'body',desc:'(v66.0) Reject or Downgrade when priority limit reached.'},
+      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the sales transaction to submit.'},
+      {name:'fulfillmentAdapter',type:'String',req:true,location:'body',desc:'(v67.0) StandardOrder or GenericAdapter.'},
+      {name:'allowOverrideOfPointOfNoReturn',type:'Boolean',req:false,location:'body',desc:'(v67.0) Override point-of-no-return setting. Default: false.'},
+      {name:'fulfillmentPriority',type:'String',req:false,location:'body',desc:'(v67.0) High, Bulk, or Default.'},
+      {name:'hydratedContextId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the hydrated context.'},
+      {name:'intakeRequestType',type:'String',req:false,location:'body',desc:'(v67.0) Synchronous or Asynchronous.'},
+      {name:'priorityLimitAction',type:'String',req:false,location:'body',desc:'(v67.0) Reject or Downgrade when priority limit reached.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}",\n      "fulfillmentAdapter": "StandardOrder"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-decomp-001",\n        "submitStatus": "Submitted",\n        "requestedFulfillmentPriority": "Default",\n        "resolvedFulfillmentPriority": "Default"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "decomposeSalesTransaction",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "requestId": "req-decomp-001",\n      "submitStatus": "SUBMITTED",\n      "requestedFulfillmentPriority": "Default",\n      "resolvedFulfillmentPriority": "Default",\n      "usedContextId": "{{CONTEXT_ID}}",\n      "errorCode": null\n    }\n  }\n]' },
 
   { id:'dro-2', category:'DRO', name:'Freeze Sales Transaction', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/freezeSalesTransaction', version:'v67.0',
+    path:'/services/data/v67.0/actions/standard/freezeSalesTransaction', version:'v64.0',
     desc:'Freeze a submitted sales transaction to prevent further fulfillment changes.',
     page:1877,
     params:[
-      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the submitted sales transaction to freeze.'},
+      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the submitted sales transaction to freeze.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-freeze-001",\n        "orchestrationPlanId": "{{ORCHESTRATION_PLAN_ID}}",\n        "planState": "Frozen",\n        "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "freezeSalesTransaction",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "requestId": "req-freeze-001",\n      "orchestrationPlanId": "{{ORCHESTRATION_PLAN_ID}}",\n      "planState": "FROZEN",\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}",\n      "pointOfNoReturnDetailForLineItemsList": [],\n      "errorCode": null\n    }\n  }\n]' },
 
   { id:'dro-3', category:'DRO', name:'Get Point Of No Return', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/getPointOfNoReturn', version:'v67.0',
+    path:'/services/data/v67.0/actions/standard/getPointOfNoReturn', version:'v64.0',
     desc:'Get the point-of-no-return status for line items in a sales transaction.',
     page:1877,
     params:[
-      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the sales transaction to check.'},
+      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the sales transaction to check.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-ponr-001",\n        "planId": "{{PLAN_ID}}",\n        "planState": "Active",\n        "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "getPointOfNoReturn",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "requestId": "req-ponr-001",\n      "planId": "{{PLAN_ID}}",\n      "planState": "Active",\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}",\n      "lineItemsPointOfNoReturnInfo": [],\n      "errorCode": null\n    }\n  }\n]' },
 
   { id:'dro-4', category:'DRO', name:'Orchestrate Sales Transaction', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/orchestrateSalesTransaction', version:'v67.0',
@@ -1543,54 +1983,56 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'priorityLimitAction',type:'String',req:false,location:'body',desc:'(v67.0) Reject or Downgrade when priority limit reached.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}",\n      "fulfillmentAdapter": "StandardOrder"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-orch-001",\n        "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n        "submitStatus": "Submitted"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "orchestrateSalesTransaction",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "requestId": "req-orch-001",\n      "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n      "submitStatus": "SUBMITTED",\n      "usedContextId": "{{CONTEXT_ID}}",\n      "requestedFulfillmentPriority": "Default",\n      "resolvedFulfillmentPriority": "Default",\n      "errorCode": null\n    }\n  }\n]' },
 
   { id:'dro-5', category:'DRO', name:'Orchestrate Transaction', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/orchestrateTransaction', version:'v67.0',
+    path:'/services/data/v67.0/actions/standard/orchestrateTransaction', version:'v66.0',
     desc:'Orchestrate a generic business/domain object (e.g., Collection Plan).',
     page:1877,
     params:[
-      {name:'transactionId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the business/domain object to orchestrate.'},
-      {name:'orchestrationType',type:'String',req:true,location:'body',desc:'(v67.0) Generic, Fulfillment, or Billing.'},
+      {name:'transactionId',type:'String',req:true,location:'body',desc:'(v66.0) ID of the business/domain object to orchestrate.'},
+      {name:'orchestrationType',type:'String',req:true,location:'body',desc:'(v66.0) Generic, Fulfillment, or Billing.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "transactionId": "{{TRANSACTION_ID}}",\n      "orchestrationType": "Fulfillment"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-orchtxn-001",\n        "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n        "submitStatus": "Submitted"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "orchestrateTransaction",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "requestId": "req-orchtxn-001",\n      "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n      "submitStatus": "SUBMITTED",\n      "errorCode": null\n    }\n  }\n]' },
 
   { id:'dro-6', category:'DRO', name:'Submit Order', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/submitOrder', version:'v67.0',
+    path:'/services/data/v67.0/actions/standard/submitOrder', version:'v61.0',
     desc:'Submit a bare order to DRO for fulfillment.',
     page:1877,
     params:[
-      {name:'orderId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the order to submit to DRO.'},
-      {name:'callType',type:'String',req:false,location:'body',desc:'(v67.0) Synchronous or Asynchronous. Default: Asynchronous.'},
-      {name:'contextId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the hydrated context (see Context Service).'},
+      {name:'orderId',type:'String',req:true,location:'body',desc:'(v61.0) ID of the order to submit to DRO.'},
+      {name:'callType',type:'String',req:false,location:'body',desc:'(v61.0) Synchronous or Asynchronous. Default: Asynchronous.'},
+      {name:'contextId',type:'String',req:false,location:'body',desc:'(v61.0) ID of the hydrated context (see Context Service).'},
     ],
     request:'{\n  "inputs": [\n    {\n      "orderId": "{{ORDER_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-submitorder-001",\n        "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n        "submitStatus": "Submitted"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "submitOrder",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "requestId": "req-submitorder-001",\n      "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n      "submitStatus": "SUBMITTED",\n      "usedContextId": "{{CONTEXT_ID}}",\n      "errorCode": null\n    }\n  }\n]' },
 
   { id:'dro-7', category:'DRO', name:'Submit Sales Transaction', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/submitSalesTransaction', version:'v67.0',
+    path:'/services/data/v67.0/actions/standard/submitSalesTransaction', version:'v63.0',
     desc:'Submit a Revenue Cloud sales transaction to DRO for fulfillment.',
     page:1877,
     params:[
-      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the sales transaction to submit.'},
-      {name:'callType',type:'String',req:false,location:'body',desc:'(v67.0) Synchronous or Asynchronous. Default: Asynchronous.'},
-      {name:'contextId',type:'String',req:false,location:'body',desc:'(v67.0) ID of the hydrated context.'},
-      {name:'fulfillmentPriority',type:'String',req:false,location:'body',desc:'(v67.0) High, Bulk, or Default.'},
-      {name:'hydratedContextId',type:'String',req:false,location:'body',desc:'(v67.0) Same as contextId — ID of hydrated context.'},
+      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v63.0) ID of the sales transaction to submit.'},
+      {name:'fulfillmentPriority',type:'String',req:false,location:'body',desc:'(v63.0) High, Bulk, or Default.'},
+      {name:'hydratedContextId',type:'String',req:false,location:'body',desc:'(v63.0) ID of the hydrated context (see Context Service).'},
+      {name:'intakeRequestType',type:'String',req:false,location:'body',desc:'(v63.0) Intake request type for the fulfillment plan.'},
+      {name:'fulfillmentAdapter',type:'String',req:false,location:'body',desc:'(v63.0) Custom fulfillment adapter API name.'},
+      {name:'allowOverrideOfPointOfNoReturn',type:'Boolean',req:false,location:'body',desc:'(v63.0) Allow override of point-of-no-return check.'},
+      {name:'priorityLimitAction',type:'String',req:false,location:'body',desc:'(v63.0) Action to take when priority limit is reached.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "requestId": "req-submitsalestxn-001",\n        "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n        "submitStatus": "Submitted"\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "submitSalesTransaction",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "fulfillmentPlanId": "{{FULFILLMENT_PLAN_ID}}",\n      "requestId": "req-submitsalestxn-001",\n      "resolvedFulfillmentPriority": "Default",\n      "requestedFulfillmentPriority": "Default",\n      "usedContextId": "{{CONTEXT_ID}}",\n      "submitStatus": "SUBMITTED"\n    }\n  }\n]' },
 
   { id:'dro-8', category:'DRO', name:'Unfreeze Sales Transaction', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/unfreezeSalesTransaction', version:'v67.0',
+    path:'/services/data/v67.0/actions/standard/unfreezeSalesTransaction', version:'v64.0',
     desc:'Unfreeze a previously frozen sales transaction to allow fulfillment changes.',
     page:1877,
     params:[
-      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v67.0) ID of the submitted sales transaction to unfreeze.'},
+      {name:'salesTransactionId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the submitted sales transaction to unfreeze.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {\n      "outputValues": {\n        "errorCode": ""\n      }\n    }\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "unfreezeSalesTransaction",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "orchestrationPlanId": "{{ORCHESTRATION_PLAN_ID}}",\n      "salesTransactionId": "{{SALES_TRANSACTION_ID}}",\n      "planState": "ACTIVE",\n      "requestId": "req-unfreeze-001",\n      "errorCode": null\n    }\n  }\n]' },
 
   // Usage — additional endpoints from PDF
   { id:'usage-6', category:'Usage', name:'Order Item Usage Details', methods:['GET'],
@@ -1625,7 +2067,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'usageEntitlementAccountId',type:'String',req:true,location:'body',desc:'(v63.0) Usage entitlement account record ID.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "usageEntitlementAccountId": "{{USAGE_ENTITLEMENT_ACCOUNT_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "invokeSummaryCreationService",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "success": true\n    }\n  }\n]' },
 
   { id:'usage-9', category:'Usage', name:'Process Consumption Overages', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/processConsumptionOverages', version:'v63.0',
@@ -1635,7 +2077,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'usageRatableSummaryId',type:'String',req:true,location:'body',desc:'(v63.0) Usage ratable summary ID for overage calculation.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "usageRatableSummaryId": "{{USAGE_RATABLE_SUMMARY_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "processConsumptionOverages",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "success": true\n    }\n  }\n]' },
 
   { id:'usage-10', category:'Usage', name:'Refresh Entitlement Bucket', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/refreshUsageEntitlementBucket', version:'v63.0',
@@ -1645,17 +2087,17 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'transactionUsageEntitlementId',type:'String',req:true,location:'body',desc:'(v63.0) Transaction usage entitlement record with buckets to refresh.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "transactionUsageEntitlementId": "{{TRANSACTION_USAGE_ENTITLEMENT_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "refreshUsageEntitlementBucket",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "success": true\n    }\n  }\n]' },
 
   { id:'usage-11', category:'Usage', name:'Retrigger Entitlement Creation', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/retriggerEntlCreatProc', version:'v65.0',
+    path:'/services/data/v67.0/actions/standard/retriggerEntlCreaProc', version:'v65.0',
     desc:'Retrigger entitlement creation for an asset. Triggers for failed/unprocessed assets or creates wallets.',
     page:2040,
     params:[
       {name:'assetId',type:'String',req:true,location:'body',desc:'(v65.0) Asset ID to retrigger entitlement creation for.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "assetId": "{{ASSET_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "retriggerEntlCreaProc",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "success": true\n    }\n  }\n]' },
 
   // Billing — additional endpoints from PDF
   { id:'bill-9', category:'Billing', name:'Invoice Draft to Posted', methods:['POST'],
@@ -1676,18 +2118,19 @@ export const ENDPOINTS: Endpoint[] = [
     params:[
       {name:'invoices',type:'Object[]',req:true,location:'body',desc:'(v63.0) Invoice objects to ingest.'},
     ],
-    request:'{\n  "invoices": []\n}',
-    response:'{\n  "success": true,\n  "ingestedCount": 0\n}' },
+    request:'{\n  "invoices": [\n    {\n      "accountId": "{{ACCOUNT_ID}}",\n      "invoiceDate": "2024-07-09",\n      "dueDate": "2024-08-09",\n      "currencyIsoCode": "USD",\n      "invoiceLines": [\n        {"description": "Service Fee","amount": 150.00,"chargeDate": "2024-07-09"}\n      ]\n    }\n  ]\n}',
+    response:'{\n  "success": true\n}' },
 
-  { id:'bill-11', category:'Billing', name:'Invoice Estimated Tax Calculation', methods:['POST'],
+  { id:'bill-11', category:'Billing', name:'Invoice Estimated Tax (Async)', methods:['POST'],
     path:'/commerce/invoicing/invoices/collection/actions/calculate-estimated-tax', version:'v63.0',
-    desc:'Calculate estimated tax for a collection of invoices.',
+    desc:'Async version of estimated tax calculation. Returns a requestIdentifier for polling. Identical path to bill-est-tax — use bill-est-tax for the primary reference.',
     page:2489,
     params:[
       {name:'invoiceIds',type:'String[]',req:true,location:'body',desc:'(v63.0) Invoice IDs to calculate estimated tax for.'},
+      {name:'correlationId',type:'String',req:false,location:'body',desc:'Optional correlation ID for traceability.'},
     ],
     request:'{\n  "invoiceIds": ["{{INVOICE_ID}}"]\n}',
-    response:'{\n  "success": true,\n  "taxResults": []\n}' },
+    response:'{\n  "errors": [],\n  "requestIdentifier": "req-tax-est-001",\n  "success": true\n}' },
 
   { id:'bill-12', category:'Billing', name:'Invoice Preview', methods:['POST'],
     path:'/commerce/invoicing/invoices/collection/actions/preview', version:'v63.0',
@@ -1699,7 +2142,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'previewDate',type:'String',req:false,location:'body',desc:'(v63.0) Date to use for preview.'},
     ],
     request:'{\n  "billingTransactionId": "{{BILLING_TRANSACTION_ID}}"\n}',
-    response:'{\n  "previewInvoices": []\n}' },
+    response:'{\n  "previewInvoices": [\n    {\n      "billingScheduleId": "{{BILLING_SCHEDULE_ID}}",\n      "amount": 150.00,\n      "billingPeriodStart": "2024-07-01",\n      "billingPeriodEnd": "2024-07-31",\n      "invoiceDate": "2024-07-09"\n    }\n  ]\n}' },
 
   { id:'bill-13', category:'Billing', name:'Invoice Run Recovery', methods:['POST'],
     path:'/commerce/invoicing/invoice-batch-runs/{invoiceBatchRunId}/actions/recover', version:'v62.0',
@@ -1709,7 +2152,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'invoiceBatchRunId',type:'String',req:true,location:'path',desc:'(v62.0) Invoice batch run ID to recover.'},
     ],
     request:'No request body.',
-    response:'{\n  "success": true\n}' },
+    response:'{\n  "results": [\n    {\n      "billingScheduleId": "{{BILLING_SCHEDULE_ID}}",\n      "status": "Success",\n      "invoiceId": "3ttSG00000001AAAA"\n    }\n  ]\n}' },
 
   { id:'bill-14', category:'Billing', name:'Batch Invoices Draft to Posted', methods:['POST'],
     path:'/commerce/invoicing/invoice-batch-runs/{invoiceBatchRunId}/actions/draft-to-posted', version:'v62.0',
@@ -1719,7 +2162,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'invoiceBatchRunId',type:'String',req:true,location:'path',desc:'(v62.0) Invoice batch run ID.'},
     ],
     request:'No request body.',
-    response:'{\n  "success": true,\n  "postedCount": 0\n}' },
+    response:'{\n  "success": true\n}' },
 
   { id:'bill-15', category:'Billing', name:'Send Emails for Posted Invoices', methods:['POST'],
     path:'/commerce/invoicing/invoice-batch-runs/actions/send-email', version:'v65.0',
@@ -1729,7 +2172,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'invoiceBatchRunId',type:'String',req:true,location:'body',desc:'(v65.0) Invoice batch run ID.'},
     ],
     request:'{\n  "invoiceBatchRunId": "{{INVOICE_BATCH_RUN_ID}}"\n}',
-    response:'{\n  "success": true,\n  "emailsSent": 0\n}' },
+    response:'{\n  "success": true\n}' },
 
   { id:'bill-16', category:'Billing', name:'Negative Invoice Lines to Credit', methods:['POST'],
     path:'/commerce/invoicing/invoices/{invoiceId}/actions/convert-to-credit', version:'v62.0',
@@ -1754,7 +2197,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'taxEffectiveDate',type:'String',req:false,location:'body',desc:'(v62.0) Tax effective date.'},
       {name:'type',type:'String',req:false,location:'body',desc:'(v62.0) Type of credit memo.'},
     ],
-    request:'{\n  "invoiceLines": [],\n  "taxStrategy": "Net"\n}',
+    request:'{\n  "invoiceLines": [\n    {\n      "invoiceLineId": "{{INVOICE_LINE_ID}}",\n      "amount": 50.00\n    }\n  ],\n  "taxStrategy": "Net",\n  "description": "Credit for billing adjustment"\n}',
     response:'{\n  "creditMemoId": "{{CREDIT_MEMO_ID}}",\n  "invoiceId": "{{INVOICE_ID}}",\n  "success": true\n}' },
 
   { id:'bill-18', category:'Billing', name:'Unapply Credit Memo', methods:['POST'],
@@ -1775,7 +2218,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'creditMemoLineId',type:'String',req:true,location:'path',desc:'(v62.0) Credit memo line ID.'},
       {name:'applications',type:'Object[]',req:true,location:'body',desc:'(v62.0) Applications to apply.'},
     ],
-    request:'{\n  "applications": []\n}',
+    request:'{\n  "applications": [\n    {\n      "invoiceLineId": "{{INVOICE_LINE_ID}}",\n      "amount": 25.00\n    }\n  ]\n}',
     response:'{\n  "success": true\n}' },
 
   { id:'bill-20', category:'Billing', name:'Unapply Credit Memo Line', methods:['POST'],
@@ -1802,7 +2245,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'effectiveDate',type:'String',req:false,location:'body',desc:'(v62.0) Effective date.'},
       {name:'type',type:'String',req:false,location:'body',desc:'(v62.0) Type of credit memo.'},
     ],
-    request:'{\n  "billingAccountId": "{{ACCOUNT_ID}}",\n  "charges": [],\n  "taxStrategy": "Net"\n}',
+    request:'{\n  "billingAccountId": "{{ACCOUNT_ID}}",\n  "charges": [\n    {\n      "description": "Service credit",\n      "amount": 75.00,\n      "chargeDate": "2024-07-09"\n    }\n  ],\n  "taxStrategy": "Net"\n}',
     response:'{\n  "creditMemoId": "{{CREDIT_MEMO_ID}}",\n  "success": true\n}' },
 
   { id:'bill-22', category:'Billing', name:'Post a Draft Memo', methods:['POST'],
@@ -1813,7 +2256,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'creditMemoIds',type:'String[]',req:true,location:'body',desc:'(v65.0) Credit memo IDs to post.'},
     ],
     request:'{\n  "creditMemoIds": ["{{CREDIT_MEMO_ID}}"]\n}',
-    response:'{\n  "success": true,\n  "postedCount": 1\n}' },
+    response:'{\n  "success": true\n}' },
 
   { id:'bill-23', category:'Billing', name:'Void Posted Credit Memo', methods:['POST'],
     path:'/commerce/billing/credit-memos/{creditMemoId}/actions/void', version:'v66.0',
@@ -1833,7 +2276,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'invoiceId',type:'String',req:true,location:'path',desc:'(v62.0) Invoice ID.'},
     ],
     request:'No request body.',
-    response:'{\n  "invoiceId": "{{INVOICE_ID}}",\n  "status": "Voided",\n  "success": true\n}' },
+    response:'{\n  "requestIdentifier": "req-void-001",\n  "success": true,\n  "errors": []\n}' },
 
   { id:'bill-25', category:'Billing', name:'Posted Invoice List Write-Off', methods:['POST'],
     path:'/commerce/invoicing/invoices/actions/write-off', version:'v64.0',
@@ -1851,9 +2294,9 @@ export const ENDPOINTS: Endpoint[] = [
     page:2489,
     params:[
       {name:'paymentId',type:'String',req:true,location:'path',desc:'(v64.0) Payment ID.'},
-      {name:'applications',type:'Object[]',req:true,location:'body',desc:'(v64.0) Invoice lines to apply the payment to.'},
+      {name:'applications',type:'Object[]',req:true,location:'body',desc:'(v64.0) Invoice lines to apply the payment to. Each: invoiceLineId (String, req), amount (Decimal, req), description (String, opt).'},
     ],
-    request:'{\n  "applications": []\n}',
+    request:'{\n  "applications": [\n    {\n      "invoiceLineId": "{{INVOICE_LINE_ID}}",\n      "amount": 100.00\n    }\n  ]\n}',
     response:'{\n  "success": true\n}' },
 
   { id:'bill-27', category:'Billing', name:'Payment Line Unapply', methods:['POST'],
@@ -1875,19 +2318,22 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'refundId',type:'String',req:true,location:'path',desc:'(v64.0) Refund ID.'},
       {name:'applications',type:'Object[]',req:true,location:'body',desc:'(v64.0) Payment lines to apply the refund to.'},
     ],
-    request:'{\n  "applications": []\n}',
+    request:'{\n  "applications": [\n    {\n      "paymentLineId": "{{PAYMENT_LINE_ID}}",\n      "amount": 50.00\n    }\n  ]\n}',
     response:'{\n  "success": true\n}' },
 
   { id:'bill-29', category:'Billing', name:'Batch Payment Scheduler', methods:['POST'],
-    path:'/commerce/payments/payment-schedulers/', version:'v64.0',
+    path:'/commerce/payments/payment-schedulers', version:'v64.0',
     desc:'Create a batch payment scheduler.',
     page:2489,
     params:[
       {name:'schedulerName',type:'String',req:true,location:'body',desc:'(v64.0) Unique scheduler name.'},
-      {name:'startDate',type:'String',req:true,location:'body',desc:'(v64.0) Start date.'},
+      {name:'startDate',type:'String',req:true,location:'body',desc:'(v64.0) Start date (yyyy-MM-dd).'},
       {name:'status',type:'String',req:true,location:'body',desc:'(v64.0) Draft, Active, or Inactive.'},
+      {name:'frequencyCadence',type:'String',req:true,location:'body',desc:'(v64.0) Once, Daily, Weekly, or Monthly.'},
+      {name:'preferredTime',type:'String',req:true,location:'body',desc:'(v64.0) Preferred run time (HH:mm).'},
+      {name:'filterCriteria',type:'Object',req:false,location:'body',desc:'(v64.0) Filter criteria to select payments.'},
     ],
-    request:'{\n  "schedulerName": "PaymentScheduler",\n  "startDate": "2024-07-09",\n  "status": "Active"\n}',
+    request:'{\n  "schedulerName": "PaymentScheduler",\n  "startDate": "2024-07-09",\n  "status": "Active",\n  "frequencyCadence": "Once",\n  "preferredTime": "00:45"\n}',
     response:'{\n  "schedulerId": "{{SCHEDULER_ID}}",\n  "success": true\n}' },
 
   { id:'bill-30', category:'Billing', name:'Payment Scheduler Update', methods:['PATCH'],
@@ -1896,7 +2342,7 @@ export const ENDPOINTS: Endpoint[] = [
     page:2489,
     params:[
       {name:'billingBatchSchedulerId',type:'String',req:true,location:'path',desc:'(v64.0) Payment scheduler ID.'},
-      {name:'status',type:'String',req:false,location:'body',desc:'(v64.0) New status: Draft, Active, or Inactive.'},
+      {name:'status',type:'String',req:false,location:'body',desc:'(v64.0) New status: Draft, Active, Inactive, or Canceled.'},
     ],
     request:'{\n  "status": "Inactive"\n}',
     response:'{\n  "schedulerId": "{{SCHEDULER_ID}}",\n  "success": true\n}' },
@@ -2011,72 +2457,77 @@ export const ENDPOINTS: Endpoint[] = [
     params:[
       {name:'billingSchedules',type:'Object[]',req:true,location:'body',desc:'(v64.0) Billing schedule data to create.'},
     ],
-    request:'{\n  "billingSchedules": []\n}',
-    response:'{\n  "billingScheduleIds": [],\n  "success": true\n}' },
+    request:'{\n  "billingSchedules": [\n    {\n      "accountId": "{{ACCOUNT_ID}}",\n      "billingDay": 1,\n      "billingFrequency": "Monthly",\n      "startDate": "2024-07-01",\n      "endDate": "2025-06-30",\n      "amount": 150.00,\n      "currencyIsoCode": "USD"\n    }\n  ]\n}',
+    response:'{\n  "billingScheduleIds": ["44bSG00000001AAAA"],\n  "success": true\n}' },
 
   // Billing — invocable actions
   { id:'bill-act-1', category:'Billing', name:'Recover Billing Schedules', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/recoverBillingSchedules', version:'v62.0',
-    desc:'Recover billing schedules in Error or Processing status.',
+    desc:'Recover a billing schedule in Error or Processing status. One schedule per invocation input (singular).',
     page:2489,
     params:[
-      {name:'billingScheduleIds',type:'String[]',req:true,location:'body',desc:'(v62.0) Billing schedule IDs to recover.'},
+      {name:'billingScheduleId',type:'String',req:true,location:'body',desc:'(v62.0) Single billing schedule ID to recover (singular, not an array).'},
     ],
-    request:'{\n  "inputs": [\n    {\n      "billingScheduleIds": ["{{BILLING_SCHEDULE_ID}}"]\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "billingScheduleId": "{{BILLING_SCHEDULE_ID}}"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "recoverBillingSchedules",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "successBillingScheduleIds": ["{{BILLING_SCHEDULE_ID}}"]\n    }\n  }\n]' },
 
   { id:'bill-act-2', category:'Billing', name:'Send Dunning Email', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/bingSendDunningEmail', version:'v63.0',
-    desc:'Send a dunning email for overdue invoices.',
+    path:'/services/data/v67.0/actions/standard/blngSendDunningEmail', version:'v63.0',
+    desc:'Send a dunning email for overdue invoices. Note: the action name prefix is blng (not bing). Verify the exact action name in your org before use.',
     page:2489,
     params:[
       {name:'invoiceId',type:'String',req:true,location:'body',desc:'(v63.0) Invoice ID to send dunning email for.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "invoiceId": "{{INVOICE_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "blngSendDunningEmail",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {}\n  }\n]' },
 
   { id:'bill-act-3', category:'Billing', name:'Suspend Billing Action', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/bingSvcSuspendBilling', version:'v63.0',
-    desc:'Suspend billing for an account or billing schedule via invocable action.',
+    path:'/services/data/v67.0/actions/standard/blngSvcSuspendBilling', version:'v63.0',
+    desc:'Suspend billing for an account via invocable action. Takes accountId and suspensionDate as required inputs.',
     page:2489,
     params:[
-      {name:'billingScheduleId',type:'String',req:true,location:'body',desc:'(v63.0) Billing schedule ID to suspend.'},
+      {name:'accountId',type:'String',req:true,location:'body',desc:'(v63.0) Account ID to suspend billing for.'},
+      {name:'suspensionDate',type:'String',req:true,location:'body',desc:'(v63.0) Date to suspend billing (ISO 8601).'},
+      {name:'resumptionDate',type:'String',req:false,location:'body',desc:'(v63.0) Optional date to automatically resume billing (ISO 8601).'},
     ],
-    request:'{\n  "inputs": [\n    {\n      "billingScheduleId": "{{BILLING_SCHEDULE_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "accountId": "{{ACCOUNT_ID}}",\n      "suspensionDate": "2024-08-01"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "blngSvcSuspendBilling",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {}\n  }\n]' },
 
   { id:'bill-act-4', category:'Billing', name:'Update Bill To Contact', methods:['POST'],
-    path:'/services/data/v67.0/actions/standard/bingSvcUpdateBillToContact', version:'v63.0',
-    desc:'Update the bill-to contact on billing records.',
+    path:'/services/data/v67.0/actions/standard/blngSvcUpdateBillToContact', version:'v63.0',
+    desc:'Update the bill-to contact on an invoice via invocable action.',
     page:2489,
     params:[
-      {name:'billingAccountId',type:'String',req:true,location:'body',desc:'(v63.0) Billing account ID.'},
-      {name:'contactId',type:'String',req:true,location:'body',desc:'(v63.0) New bill-to contact ID.'},
+      {name:'invoiceId',type:'String',req:true,location:'body',desc:'(v63.0) Invoice ID to update the bill-to contact on.'},
+      {name:'newBillToContactId',type:'String',req:true,location:'body',desc:'(v63.0) ID of the new bill-to contact.'},
+      {name:'setAsDefault',type:'Boolean',req:false,location:'body',desc:'(v63.0) Whether to set the contact as the default bill-to contact.'},
     ],
-    request:'{\n  "inputs": [\n    {\n      "billingAccountId": "{{ACCOUNT_ID}}",\n      "contactId": "{{CONTACT_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "invoiceId": "{{INVOICE_ID}}",\n      "newBillToContactId": "{{CONTACT_ID}}"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "blngSvcUpdateBillToContact",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {}\n  }\n]' },
 
   { id:'bill-act-5', category:'Billing', name:'Unapply Credit', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/unapplyCredit', version:'v62.0',
-    desc:'Unapply a credit memo from an invoice via invocable action.',
+    desc:'Unapply a credit memo from an invoice via invocable action. Pass the CreditMemoInvApplication junction record ID (not the raw credit memo or invoice IDs).',
     page:2489,
     params:[
-      {name:'creditMemoId',type:'String',req:true,location:'body',desc:'(v62.0) Credit memo ID.'},
-      {name:'invoiceId',type:'String',req:true,location:'body',desc:'(v62.0) Invoice ID.'},
+      {name:'recordId',type:'String',req:true,location:'body',desc:'(v62.0) ID of the CreditMemoInvApplication junction record to unapply (not the credit memo or invoice ID directly).'},
+      {name:'description',type:'String',req:false,location:'body',desc:'(v62.0) Optional description.'},
+      {name:'effectiveDate',type:'String',req:false,location:'body',desc:'(v62.0) Effective date of the unapply operation.'},
     ],
-    request:'{\n  "inputs": [\n    {\n      "creditMemoId": "{{CREDIT_MEMO_ID}}",\n      "invoiceId": "{{INVOICE_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "recordId": "{{CREDIT_MEMO_INV_APPLICATION_ID}}"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "unapplyCredit",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "recordId": "{{CREDIT_MEMO_INV_APPLICATION_ID}}"\n    }\n  }\n]' },
 
   { id:'bill-act-6', category:'Billing', name:'Unapply Payment', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/unapplyPayment', version:'v64.0',
-    desc:'Unapply a payment from invoice lines via invocable action.',
+    desc:'Unapply a payment from invoice lines via invocable action. Pass the PaymentLineInvoice junction record ID (type=Applied), not the payment or invoice IDs directly.',
     page:2489,
     params:[
-      {name:'paymentId',type:'String',req:true,location:'body',desc:'(v64.0) Payment ID.'},
-      {name:'paymentLineId',type:'String',req:true,location:'body',desc:'(v64.0) Payment line ID.'},
+      {name:'recordId',type:'String',req:true,location:'body',desc:'(v64.0) ID of the PaymentLineInvoice or PaymentLineInvoiceLine junction record to unapply (must have type=Applied).'},
+      {name:'description',type:'String',req:false,location:'body',desc:'(v64.0) Optional description.'},
+      {name:'effectiveDateTime',type:'String',req:false,location:'body',desc:'(v64.0) Effective datetime of the unapply operation (ISO 8601).'},
     ],
-    request:'{\n  "inputs": [\n    {\n      "paymentId": "{{PAYMENT_ID}}",\n      "paymentLineId": "{{PAYMENT_LINE_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    request:'{\n  "inputs": [\n    {\n      "recordId": "{{PAYMENT_LINE_INVOICE_ID}}"\n    }\n  ]\n}',
+    response:'[\n  {\n    "actionName": "unapplyPayment",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "recordId": "{{PAYMENT_LINE_INVOICE_ID}}",\n      "unappliedDateTime": "2024-07-09T10:00:00Z"\n    }\n  }\n]' },
 
   { id:'bill-act-7', category:'Billing', name:'Void Posted Credit Memo Action', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/voidPostedCreditMemo', version:'v66.0',
@@ -2086,7 +2537,7 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'creditMemoId',type:'String',req:true,location:'body',desc:'(v66.0) Credit memo ID to void.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "creditMemoId": "{{CREDIT_MEMO_ID}}"\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "voidPostedCreditMemo",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {\n      "creditMemoId": "{{CREDIT_MEMO_ID}}"\n    }\n  }\n]' },
 
   { id:'bill-act-8', category:'Billing', name:'Write Off Invoices', methods:['POST'],
     path:'/services/data/v67.0/actions/standard/writeOffInvoices', version:'v64.0',
@@ -2096,5 +2547,16 @@ export const ENDPOINTS: Endpoint[] = [
       {name:'invoiceIds',type:'String[]',req:true,location:'body',desc:'(v64.0) Invoice IDs to write off.'},
     ],
     request:'{\n  "inputs": [\n    {\n      "invoiceIds": ["{{INVOICE_ID}}"]\n    }\n  ]\n}',
-    response:'{\n  "compositeResponse": [\n    {"outputValues": {"success": true}}\n  ]\n}' },
+    response:'[\n  {\n    "actionName": "writeOffInvoices",\n    "errors": null,\n    "isSuccess": true,\n    "outputValues": {}\n  }\n]' },
+
+  { id:'bill-docgen-1', category:'Billing', name:'Batch Invoice Document Generation', methods:['POST'],
+    path:'/commerce/billing/invoices/invoice-batch-docgen/{invoiceBatchRunId}/actions/{actionName}', version:'v63.0',
+    desc:'Asynchronously generate PDF documents for invoices in Draft or Posted status associated with an invoice batch run record. Requires Document Generation for Billing enabled. actionName: use "run" to generate, or "retry" to regenerate failed invoices.',
+    page:1381,
+    params:[
+      {name:'invoiceBatchRunId',type:'String',req:true,location:'path',desc:'(v63.0) ID of the invoice batch run record that created the Draft or Posted invoices.'},
+      {name:'actionName',type:'String',req:true,location:'path',desc:'(v63.0) Name of the action to perform. Valid values: run (generate documents), retry (regenerate previously failed documents).'},
+    ],
+    request:'No request body.',
+    response:'{\n  "requestIdentifier": "5IRDU000000009i4AA",\n  "success": true,\n  "errors": []\n}' },
 ];

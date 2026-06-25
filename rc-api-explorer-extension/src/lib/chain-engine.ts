@@ -77,12 +77,14 @@ export function createSession(
   modeOverride?:      EngineMode,
   executionOverride?: ExecMode,
   extraPlaybooks:     Playbook[] = [],
+  apiVersion?:        string,
 ): ChainSession {
   const playbook = [...PLAYBOOKS, ...extraPlaybooks].find(p => p.id === playbookId);
   if (!playbook) { throw new Error(`Playbook "${playbookId}" not found`); }
 
   const mode      = modeOverride      ?? playbook.mode      ?? CHAIN_CONFIG.defaultMode;
   const execution = executionOverride ?? playbook.execution ?? CHAIN_CONFIG.defaultExecution;
+  const ver       = apiVersion || 'v66.0';
 
   const steps: StepState[] = playbook.steps.map(step => {
     const ep = ENDPOINTS.find(e => e.id === step.endpointId);
@@ -93,7 +95,7 @@ export function createSession(
       endpointId:         step.endpointId,
       label:              step.label,
       status:             'pending' as StepStatus,
-      resolvedPath:       ep ? `/services/data/${ep.version || 'v67.0'}${ep.path}` : '',
+      resolvedPath:       ep ? `/services/data/${ver}${ep.path}` : '',
       resolvedBody:       defaultBody,
       extractedValues:    {},
       extractionWarnings: [],
@@ -176,16 +178,17 @@ export function applyManualOverride(
   return updated;
 }
 
-export function resetStep(session: ChainSession, stepIdx: number, extraPlaybooks: Playbook[] = []): ChainSession {
+export function resetStep(session: ChainSession, stepIdx: number, extraPlaybooks: Playbook[] = [], apiVersion?: string): ChainSession {
   const updated = { ...session, steps: session.steps.map(s => ({ ...s })) };
   const stepState = updated.steps[stepIdx];
   const ep = ENDPOINTS.find(e => e.id === stepState.endpointId);
   const playbook = [...PLAYBOOKS, ...extraPlaybooks].find(p => p.id === session.playbookId);
   const pbStep = playbook?.steps[stepIdx];
   const isBodyMethod = ep && ['POST','PUT','PATCH'].includes(ep.methods[0]);
+  const ver = apiVersion || session.steps[stepIdx].resolvedPath.match(/\/services\/data\/(v\d+\.\d+)\//)?.[1] || 'v66.0';
   stepState.status             = 'pending';
   stepState.response           = undefined;
-  stepState.resolvedPath       = ep ? `/services/data/${ep.version || 'v67.0'}${ep.path}` : stepState.resolvedPath;
+  stepState.resolvedPath       = ep ? `/services/data/${ver}${ep.path}` : stepState.resolvedPath;
   stepState.resolvedBody       = isBodyMethod ? (pbStep?.initialBody ?? ep!.request) : '';
   stepState.extractedValues    = {};
   stepState.extractionWarnings = [];

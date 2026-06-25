@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { ApiExplorerPanel } from './apiExplorerPanel';
 import { ProductBrowserPanel } from './productBrowserPanel';
+import { AssetReplacerPanel } from './assetReplacerPanel';
 import { RunsTreeProvider, RunItem } from './lib/runs-tree-provider';
 import { deleteRun, clearRuns } from './lib/run-store';
 
@@ -92,6 +93,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('rcApiExplorer.openProductBrowser', () => {
       ProductBrowserPanel.createOrShow(context);
+    }),
+
+    vscode.commands.registerCommand('rcApiExplorer.openAssetReplacer', () => {
+      AssetReplacerPanel.createOrShow(context);
     }),
 
     vscode.commands.registerCommand('rcApiExplorer.deleteRun', async (item: RunItem) => {

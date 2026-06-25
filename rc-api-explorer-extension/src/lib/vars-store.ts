@@ -54,20 +54,33 @@ interface EnvStore {
   envs:   Environment[];
 }
 
-function envFile(workspaceRoot: string): string {
-  return path.join(workspaceRoot, '.rc-explorer', 'environments.json');
+// Environments are stored in global extension storage (fixed path, workspace-independent).
+// globalStorageRoot is context.globalStorageUri.fsPath passed from the panel.
+function envFile(globalStorageRoot: string): string {
+  return path.join(globalStorageRoot, 'environments.json');
 }
 
-function readEnvStore(workspaceRoot: string): EnvStore {
-  const f = envFile(workspaceRoot);
+// Migrate legacy workspace-relative environments.json → global storage (runs once).
+export function migrateEnvs(globalStorageRoot: string, workspaceRoot: string): void {
+  const globalFile = envFile(globalStorageRoot);
+  if (fs.existsSync(globalFile)) { return; }
+  const legacyFile = path.join(workspaceRoot, '.rc-explorer', 'environments.json');
+  if (!fs.existsSync(legacyFile)) { return; }
+  try {
+    fs.mkdirSync(globalStorageRoot, { recursive: true });
+    fs.copyFileSync(legacyFile, globalFile);
+  } catch { /* ignore migration errors */ }
+}
+
+function readEnvStore(globalStorageRoot: string): EnvStore {
+  const f = envFile(globalStorageRoot);
   if (!fs.existsSync(f)) { return { active: '', envs: [] }; }
   try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return { active: '', envs: [] }; }
 }
 
-function writeEnvStore(workspaceRoot: string, store: EnvStore): void {
-  const dir = path.dirname(envFile(workspaceRoot));
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(envFile(workspaceRoot), JSON.stringify(store, null, 2), 'utf8');
+function writeEnvStore(globalStorageRoot: string, store: EnvStore): void {
+  fs.mkdirSync(globalStorageRoot, { recursive: true });
+  fs.writeFileSync(envFile(globalStorageRoot), JSON.stringify(store, null, 2), 'utf8');
 }
 
 export function listEnvs(workspaceRoot: string): Environment[] {

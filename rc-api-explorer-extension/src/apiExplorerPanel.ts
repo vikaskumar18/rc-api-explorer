@@ -13,9 +13,9 @@ import {
 } from './lib/chain-engine';
 import { saveRun, saveSingleRun, listRuns, loadRun, clearRuns } from './lib/run-store';
 import {
-  loadVars, setVar, deleteVar,
+  loadVars, setVar, deleteVar, substituteVars,
   listEnvs, getActiveEnvName, getActiveEnv, createEnv, deleteEnv, setActiveEnv,
-  setEnvVar, deleteEnvVar, updateEnvOrg, Environment,
+  setEnvVar, deleteEnvVar, updateEnvOrg, migrateEnvs, Environment,
 } from './lib/vars-store';
 import { listCustomRequests, saveCustomRequest, updateCustomRequest, deleteCustomRequest, deleteAllCustomRequests, deleteCustomRequestsByCategory, importCustomRequests, CustomRequest } from './lib/custom-store';
 import { listCustomPlaybooks, saveCustomPlaybook, deleteCustomPlaybook } from './lib/custom-playbooks-store';
@@ -103,10 +103,12 @@ export class ApiExplorerPanel {
     const defaultOrg = this.orgs.find(o => o.isDefault)?.alias ?? this.orgs[0]?.alias ?? '';
     // Load vars for legacy compat
     const vars = defaultOrg ? loadVars(this.workspaceRoot(), defaultOrg) : {};
+    // Migrate legacy workspace-relative envs to global storage (once)
+    migrateEnvs(this.envRoot(), this.workspaceRoot());
     // Environments
-    const envs = listEnvs(this.workspaceRoot());
-    const activeEnvName = getActiveEnvName(this.workspaceRoot());
-    const activeEnv = getActiveEnv(this.workspaceRoot());
+    const envs = listEnvs(this.envRoot());
+    const activeEnvName = getActiveEnvName(this.envRoot());
+    const activeEnv = getActiveEnv(this.envRoot());
     this.postMsg({
       type:           'init',
       orgs:           this.orgs,
@@ -195,9 +197,9 @@ export class ApiExplorerPanel {
         break;
 
       case 'chainStart': {
-        const { playbookId, orgAlias, mode, execution } = msg;
+        const { playbookId, orgAlias, mode, execution, apiVersion: chainApiVer } = msg;
         try {
-          this.chainSession = createSession(playbookId, orgAlias, mode, execution, listCustomPlaybooks(this.workspaceRoot()));
+          this.chainSession = createSession(playbookId, orgAlias, mode, execution, listCustomPlaybooks(this.workspaceRoot()), chainApiVer);
           this.postMsg({ type: 'chainStarted', session: this.chainSession });
         } catch (err: any) {
           this.postMsg({ type: 'chainError', error: err.message });
@@ -214,12 +216,14 @@ export class ApiExplorerPanel {
         const method = ep?.methods[0] ?? 'GET';
         this.chainSession.steps[stepIdx].status = 'running';
         this.postMsg({ type: 'chainStepStarted', stepIdx });
-        const result = await callApi(
-          this.chainSession.orgAlias,
-          method,
-          stepState.resolvedPath,
-          ['POST','PUT','PATCH'].includes(method) ? stepState.resolvedBody : undefined,
-        );
+        const _vars1 = { ...loadVars(this.workspaceRoot(), this.chainSession.orgAlias), ...(getActiveEnv(this.envRoot())?.vars ?? {}) };
+        const resolvedPath1 = substituteVars(stepState.resolvedPath, _vars1);
+        const resolvedBody1 = ['POST','PUT','PATCH'].includes(method) ? substituteVars(stepState.resolvedBody, _vars1) : undefined;
+        const unresolved1 = [resolvedPath1, resolvedBody1 ?? ''].join('\n').match(/\{\{[A-Z0-9_]+\}\}/g);
+        if (unresolved1) {
+          this.postMsg({ type: 'toast', message: `Unresolved vars: ${[...new Set(unresolved1)].join(', ')} — set them in Vars before running`, kind: 'error' });
+        }
+        const result = await callApi(this.chainSession.orgAlias, method, resolvedPath1, resolvedBody1);
         this.chainSession = applyStepResult(this.chainSession, stepIdx, result, listCustomPlaybooks(this.workspaceRoot()));
         this.postMsg({ type: 'chainStepDone', stepIdx, session: this.chainSession, result });
         break;
@@ -228,6 +232,7 @@ export class ApiExplorerPanel {
       case 'chainRunAll': {
         if (!this.chainSession) { break; }
         const isHybrid = this.chainSession.execution === 'hybrid';
+        const _vars2 = { ...loadVars(this.workspaceRoot(), this.chainSession.orgAlias), ...(getActiveEnv(this.envRoot())?.vars ?? {}) };
         for (let i = 0; i < this.chainSession.steps.length; i++) {
           const stepState = this.chainSession.steps[i];
           if (stepState.status === 'done') { continue; }
@@ -238,8 +243,8 @@ export class ApiExplorerPanel {
           const result = await callApi(
             this.chainSession.orgAlias,
             method,
-            stepState.resolvedPath,
-            ['POST','PUT','PATCH'].includes(method) ? stepState.resolvedBody : undefined,
+            substituteVars(stepState.resolvedPath, _vars2),
+            ['POST','PUT','PATCH'].includes(method) ? substituteVars(stepState.resolvedBody, _vars2) : undefined,
           );
           this.chainSession = applyStepResult(this.chainSession, i, result, listCustomPlaybooks(this.workspaceRoot()));
           this.postMsg({ type: 'chainStepDone', stepIdx: i, session: this.chainSession, result });
@@ -262,6 +267,7 @@ export class ApiExplorerPanel {
         if (!this.chainSession) { break; }
         if (msg.body != null) { this.chainSession.steps[fromStepIdx].resolvedBody = msg.body; }
         const isHybrid2 = this.chainSession.execution === 'hybrid';
+        const _vars3 = { ...loadVars(this.workspaceRoot(), this.chainSession.orgAlias), ...(getActiveEnv(this.envRoot())?.vars ?? {}) };
         for (let i = fromStepIdx; i < this.chainSession.steps.length; i++) {
           const stepState = this.chainSession.steps[i];
           const ep = ENDPOINTS.find(e => e.id === stepState.endpointId);
@@ -271,8 +277,8 @@ export class ApiExplorerPanel {
           const result = await callApi(
             this.chainSession.orgAlias,
             method,
-            stepState.resolvedPath,
-            ['POST','PUT','PATCH'].includes(method) ? stepState.resolvedBody : undefined,
+            substituteVars(stepState.resolvedPath, _vars3),
+            ['POST','PUT','PATCH'].includes(method) ? substituteVars(stepState.resolvedBody, _vars3) : undefined,
           );
           this.chainSession = applyStepResult(this.chainSession, i, result, listCustomPlaybooks(this.workspaceRoot()));
           this.postMsg({ type: 'chainStepDone', stepIdx: i, session: this.chainSession, result });
@@ -298,9 +304,9 @@ export class ApiExplorerPanel {
       }
 
       case 'chainResetStep': {
-        const { stepIdx } = msg;
+        const { stepIdx, apiVersion: resetApiVer } = msg;
         if (!this.chainSession) { break; }
-        this.chainSession = resetStep(this.chainSession, stepIdx, listCustomPlaybooks(this.workspaceRoot()));
+        this.chainSession = resetStep(this.chainSession, stepIdx, listCustomPlaybooks(this.workspaceRoot()), resetApiVer);
         this.postMsg({ type: 'chainSessionUpdated', session: this.chainSession });
         break;
       }
@@ -491,43 +497,43 @@ export class ApiExplorerPanel {
       // ── Environments ──────────────────────────────────────────────────────
       case 'createEnv': {
         const { name, orgAlias } = msg;
-        createEnv(this.workspaceRoot(), name, orgAlias);
-        const envs = listEnvs(this.workspaceRoot());
-        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: getActiveEnv(this.workspaceRoot())?.vars ?? {} });
+        createEnv(this.envRoot(), name, orgAlias);
+        const envs = listEnvs(this.envRoot());
+        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.envRoot()), activeEnvVars: getActiveEnv(this.envRoot())?.vars ?? {} });
         break;
       }
       case 'deleteEnv': {
         const { name } = msg;
-        deleteEnv(this.workspaceRoot(), name);
-        const envs = listEnvs(this.workspaceRoot());
-        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: getActiveEnv(this.workspaceRoot())?.vars ?? {} });
+        deleteEnv(this.envRoot(), name);
+        const envs = listEnvs(this.envRoot());
+        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.envRoot()), activeEnvVars: getActiveEnv(this.envRoot())?.vars ?? {} });
         break;
       }
       case 'switchEnv': {
         const { name } = msg;
-        setActiveEnv(this.workspaceRoot(), name);
-        const env = getActiveEnv(this.workspaceRoot());
-        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.workspaceRoot()), activeEnvName: name, activeEnvVars: env?.vars ?? {} });
+        setActiveEnv(this.envRoot(), name);
+        const env = getActiveEnv(this.envRoot());
+        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.envRoot()), activeEnvName: name, activeEnvVars: env?.vars ?? {} });
         break;
       }
       case 'setEnvVar': {
         const { envName, varName, value } = msg;
-        setEnvVar(this.workspaceRoot(), envName, varName, value);
-        const env = getActiveEnv(this.workspaceRoot());
-        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.workspaceRoot()), activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: env?.vars ?? {} });
+        setEnvVar(this.envRoot(), envName, varName, value);
+        const env = getActiveEnv(this.envRoot());
+        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.envRoot()), activeEnvName: getActiveEnvName(this.envRoot()), activeEnvVars: env?.vars ?? {} });
         break;
       }
       case 'deleteEnvVar': {
         const { envName, varName } = msg;
-        deleteEnvVar(this.workspaceRoot(), envName, varName);
-        const env = getActiveEnv(this.workspaceRoot());
-        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.workspaceRoot()), activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: env?.vars ?? {} });
+        deleteEnvVar(this.envRoot(), envName, varName);
+        const env = getActiveEnv(this.envRoot());
+        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.envRoot()), activeEnvName: getActiveEnvName(this.envRoot()), activeEnvVars: env?.vars ?? {} });
         break;
       }
       case 'updateEnvOrg': {
         const { envName, orgAlias } = msg;
-        updateEnvOrg(this.workspaceRoot(), envName, orgAlias);
-        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.workspaceRoot()), activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: getActiveEnv(this.workspaceRoot())?.vars ?? {} });
+        updateEnvOrg(this.envRoot(), envName, orgAlias);
+        this.postMsg({ type: 'envsUpdated', envs: listEnvs(this.envRoot()), activeEnvName: getActiveEnvName(this.envRoot()), activeEnvVars: getActiveEnv(this.envRoot())?.vars ?? {} });
         break;
       }
 
@@ -551,7 +557,7 @@ export class ApiExplorerPanel {
             version: '1.0',
             exportedAt: new Date().toISOString(),
             customRequests: listCustomRequests(this.workspaceRoot()),
-            environments: listEnvs(this.workspaceRoot()),
+            environments: listEnvs(this.envRoot()),
           };
           require('fs').writeFileSync(uri.fsPath, JSON.stringify(data, null, 2), 'utf8');
           vscodeApi.window.showInformationMessage(`Exported to ${uri.fsPath}`);
@@ -678,12 +684,12 @@ export class ApiExplorerPanel {
       }
       case 'importPostmanEnvVars': {
         const { envName, vars } = msg as { envName: string; vars: Array<{ key: string; value: string }> };
-        createEnv(this.workspaceRoot(), envName, '');
+        createEnv(this.envRoot(), envName, '');
         for (const v of vars) {
-          if (v.key) setEnvVar(this.workspaceRoot(), envName, v.key, v.value);
+          if (v.key) setEnvVar(this.envRoot(), envName, v.key, v.value);
         }
-        const envs = listEnvs(this.workspaceRoot());
-        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.workspaceRoot()), activeEnvVars: getActiveEnv(this.workspaceRoot())?.vars ?? {} });
+        const envs = listEnvs(this.envRoot());
+        this.postMsg({ type: 'envsUpdated', envs, activeEnvName: getActiveEnvName(this.envRoot()), activeEnvVars: getActiveEnv(this.envRoot())?.vars ?? {} });
         this.postMsg({ type: 'toast', message: `Imported ${vars.length} variables into "${envName}"`, kind: 'success' });
         break;
       }
@@ -697,6 +703,10 @@ export class ApiExplorerPanel {
     const vscode = require('vscode');
     const folders = vscode.workspace.workspaceFolders;
     return folders?.[0]?.uri?.fsPath ?? os.homedir();
+  }
+
+  private envRoot(): string {
+    return this.context.globalStorageUri.fsPath;
   }
 
   private postMsg(msg: any): void {
@@ -831,6 +841,9 @@ body{font-family:var(--vscode-font-family,-apple-system,BlinkMacSystemFont,'Sego
 #tab-new-btn{padding:0 10px;height:36px;background:none;border:none;color:var(--fg3);
   font-size:18px;cursor:pointer;flex-shrink:0;border-left:1px solid var(--border)}
 #tab-new-btn:hover{color:var(--acc)}
+#tab-close-all-btn{padding:0 10px;height:36px;background:none;border:none;color:var(--fg3);
+  font-size:11px;cursor:pointer;flex-shrink:0;border-left:1px solid var(--border)}
+#tab-close-all-btn:hover{color:var(--red)}
 
 /* DETAIL */
 #detail{flex:1;overflow-y:auto;background:var(--bg)}
@@ -1113,6 +1126,7 @@ div:hover>.cr-pin-btn, div:hover>.cr-action-btn{opacity:1}
   <div id="tab-bar">
     <div id="tab-scroll"></div>
     <button id="tab-new-btn" onclick="openNewRequestTab()" title="New request">+</button>
+    <button id="tab-close-all-btn" onclick="closeAllTabs()" title="Close all tabs">&#10005; All</button>
   </div>
 
   <!-- DETAIL -->

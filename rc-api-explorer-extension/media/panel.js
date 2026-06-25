@@ -452,6 +452,16 @@ function renderTabBar(){
   }).join('');
 }
 
+function closeAllTabs(){
+  tabs.splice(0, tabs.length);
+  document.querySelectorAll('.tab-panel').forEach(p=>p.remove());
+  Object.keys(cfgBuilderState).forEach(k=>delete cfgBuilderState[k]);
+  activeTabId=null;
+  document.getElementById('tab-empty').style.display='flex';
+  renderTabBar();
+  render();
+}
+
 // ── Endpoint detail ───────────────────────────────────────────────────────────
 function showEp(id){
   const ep = endpoints.find(e=>e.id===id);
@@ -2155,7 +2165,7 @@ function startPlaybook(pbId){
   const orgAlias=document.getElementById('org-select').value;
   if(!orgAlias){ showToast('Select an org first.','error'); return; }
   selPlaybook=pbId;
-  vscMsg({type:'chainStart', playbookId:pbId, orgAlias, mode:chainMode, execution:chainExec});
+  vscMsg({type:'chainStart', playbookId:pbId, orgAlias, mode:chainMode, execution:chainExec, apiVersion:DEFAULT_API_VERSION||'v66.0'});
   showChainDetail(pbId);
 }
 
@@ -2329,8 +2339,8 @@ function renderChainTimeline(){
 
 function runStep(i){ const b=document.getElementById('chain-body-'+i); const body=b?b.value:undefined; if(body!=null&&chainSession) chainSession.steps[i].resolvedBody=body; vscMsg({type:'chainStep',stepIdx:i,body}); }
 function runFrom(i){ const b=document.getElementById('chain-body-'+i); const body=b?b.value:undefined; if(body!=null&&chainSession) chainSession.steps[i].resolvedBody=body; vscMsg({type:'chainRunFrom',fromStepIdx:i,body}); }
-function saveBodyOverride(i){ const b=document.getElementById('chain-body-'+i); if(!b||!chainSession) return; chainSession.steps[i].resolvedBody=b.value; vscMsg({type:'chainOverride',stepIdx:i,target:'body.__raw__',value:b.value}); }
-function resetAndEdit(i){ vscMsg({type:'chainResetStep',stepIdx:i}); }
+function saveBodyOverride(i){ const b=document.getElementById('chain-body-'+i); if(!b||!chainSession) return; chainSession.steps[i].resolvedBody=b.value; vscMsg({type:'chainOverride',stepIdx:i,target:'body.__raw__',value:b.value}); showToast('Body saved','success'); }
+function resetAndEdit(i){ vscMsg({type:'chainResetStep',stepIdx:i,apiVersion:DEFAULT_API_VERSION||'v66.0'}); }
 function copyChainResp(i){
   const step=chainSession&&chainSession.steps&&chainSession.steps[i];
   if(!step||!step.response) return;
@@ -5550,19 +5560,34 @@ function cfgSaveInstance(tabId){
 function cfgRunRules(tabId){
   const s = cfgBuilderState[tabId];
   if(!s.transactionId){ showToast('Enter a Transaction ID first.','error'); return; }
+  if(!s.contextId){ showToast('Load a session first.','error'); return; }
   const orgAlias = s.orgAlias || document.getElementById('org-select').value;
   if(!orgAlias){ showToast('Select an org first.','error'); return; }
-  const body = { transactionId: s.transactionId };
-  if(s.contextId) body.transactionContextId = s.contextId;
-  body.ruleOptions = { isUpdateContextRequired: true };
+  const body = {
+    transactionId: s.transactionId,
+    transactionContextId: s.contextId,
+    configuratorOptions: Object.assign({}, s.cfgOptions, {
+      executeConfigurationRules: true,
+      executePricing: true,
+      returnProductCatalogData: false
+    }),
+    contextResponseType: 'Delta',
+    addedNodes: [],
+    updatedNodes: [],
+    deletedNodes: []
+  };
+  if(s.accountId) body.qualificationContext = { accountId: s.accountId };
   const reqId = ++reqCounter;
   pendingReqs[reqId] = function(result){
-    _cfgShowResp(tabId, result, '');
+    _cfgHandleResponse(tabId, result, function(parsed){
+      if(parsed.contextId) s.contextId = parsed.contextId;
+      _cfgShowResp(tabId, result, '');
+    });
   };
   vscMsg({ type:'executeCustom', requestId:reqId, orgAlias,
     method:'POST',
-    path:'/services/data/v67.0/revenue/product-configurator/rules/actions/execute',
-    headers:{}, body: JSON.stringify(body), apiVersion:'v67.0' });
+    path:'/services/data/'+(DEFAULT_API_VERSION||'v66.0')+'/connect/cpq/configurator/actions/configure',
+    headers:{}, body: JSON.stringify(body), apiVersion: DEFAULT_API_VERSION||'v66.0' });
 }
 
 function _cfgHandleResponse(tabId, result, onSuccess){

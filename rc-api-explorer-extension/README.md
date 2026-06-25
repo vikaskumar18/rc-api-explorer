@@ -446,24 +446,6 @@ npm run watch
 
 ---
 
-## API Reference
-
-Full API documentation is in `rc-api-explorer-extension/docs/api-skills/`:
-
-| File | Coverage |
-|------|----------|
-| `revenue-cloud-pcm-apis.md` | Product Catalog Management |
-| `revenue-cloud-discovery-apis.md` | CPQ / Discovery |
-| `revenue-cloud-pricing-apis.md` | Salesforce Pricing |
-| `revenue-cloud-transaction-apis.md` | Transaction Management |
-| `revenue-cloud-dro-apis.md` | DRO / Fulfillment |
-| `revenue-cloud-usage-apis.md` | Usage Management |
-| `revenue-cloud-billing-apis.md` | Billing |
-| `revenue-cloud-rate-apis.md` | Rate Management |
-| `revenue-cloud-configurator-apis.md` | Product Configurator |
-
----
-
 ## Feedback
 
 Found a bug, missing endpoint, or want a new playbook?

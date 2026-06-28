@@ -287,9 +287,10 @@ const CAT_LABELS = {
   PCM:'Product Catalog Mgmt', Discovery:'Product Discovery',
   Pricing:'Salesforce Pricing', Rate:'Rate Management',
   Configurator:'Configurator', Transaction:'Transaction Mgmt',
-  Usage:'Usage Management', Billing:'Billing', DRO:'DRO & Fulfillment'
+  Usage:'Usage Management', Billing:'Billing', DRO:'DRO & Fulfillment',
+  Context:'Context Service'
 };
-const CATS = ['PCM','Discovery','Pricing','Rate','Configurator','Transaction','Usage','Billing','DRO'];
+const CATS = ['PCM','Discovery','Pricing','Rate','Configurator','Transaction','Usage','Billing','DRO','Context'];
 
 function setF(f, btn){
   curFilter = f;
@@ -574,7 +575,7 @@ function buildExamplesPanel(ep, tabId){
       (ex.steps?'<div style="padding:6px 12px;background:var(--bg2)">'+
         ex.steps.map(function(s){ return '<div style="font-size:11px;color:var(--fg2);padding:2px 0;display:flex;gap:6px"><span style="color:var(--acc)">→</span>'+esc(s)+'</div>'; }).join('')+
       '</div>':'')+
-      '<pre style="margin:0;padding:10px 12px;font-size:11px;overflow-x:auto;background:var(--bg1);max-height:260px;overflow-y:auto">'+esc(JSON.stringify(JSON.parse(ex.body),null,2))+'</pre>'+
+      (ex.body?'<pre style="margin:0;padding:10px 12px;font-size:11px;overflow-x:auto;background:var(--bg1);max-height:260px;overflow-y:auto">'+esc((function(){try{return JSON.stringify(JSON.parse(ex.body),null,2);}catch(_){return ex.body;}})())+'</pre>':'')+
     '</div>';
   }).join('');
   return '<div style="padding:4px 2px 8px">'+

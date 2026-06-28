@@ -7,6 +7,15 @@ A VS Code extension for exploring, testing, and chaining Salesforce Revenue Clou
 
 ---
 
+## What's New in v1.4.0
+
+- **Context Service category** — 10 new endpoints (ctx-1 through ctx-10) covering the full Context Service runtime API: Create Context, Get/Delete Context, Update Attributes, Query Record, Query Record Status, Clear Runtime Schema Cache, List/Get Context Definition Interfaces, Create Query Tags, and Write Through Tags
+- **Context filter chip** — new **Context** button in the filter bar alongside PCM, Discovery, Pricing, etc.
+- **Live-tested on Salesforce org** — ctx-3, ctx-7, ctx-8, ctx-9 verified working; ctx-5 path and request body corrected from live API responses
+- **Bug fix** — examples panel crash on GET/DELETE endpoints with no request body (empty body now handled gracefully)
+
+---
+
 ## What's New in v1.3.0
 
 - **Full endpoint audit** — all 166+ endpoints verified against official Salesforce Revenue Cloud docs across all 9 categories
@@ -79,7 +88,7 @@ Or open directly: [VS Code Marketplace](https://marketplace.visualstudio.com/ite
 Download the latest `.vsix` from [Releases](https://github.com/vikaskumar18/rc-api-explorer/releases/latest), then:
 
 ```bash
-code --install-extension rc-api-explorer-1.1.0.vsix
+code --install-extension rc-api-explorer-1.4.0.vsix
 ```
 
 Or via VS Code UI (no terminal needed):
@@ -87,7 +96,7 @@ Or via VS Code UI (no terminal needed):
 2. Go to the **Extensions** view (`Cmd+Shift+X` on Mac / `Ctrl+Shift+X` on Windows)
 3. Click the **`...`** menu (top-right of the Extensions panel)
 4. Select **Install from VSIX…**
-5. Browse to and select the downloaded `rc-api-explorer-1.1.0.vsix` file
+5. Browse to and select the downloaded `rc-api-explorer-1.4.0.vsix` file
 6. Click **Install**
 
 After installing, reload VS Code when prompted. The extension activates automatically on startup.
@@ -435,8 +444,8 @@ Environment variable sets are stored in VS Code's extension storage (persisted a
 ```bash
 cd rc-api-explorer-extension
 npm install
-npm run package        # builds + packages → rc-api-explorer-1.3.0.vsix
-code --install-extension rc-api-explorer-1.3.0.vsix
+npm run package        # builds + packages → rc-api-explorer-1.4.0.vsix
+code --install-extension rc-api-explorer-1.4.0.vsix
 ```
 
 For development with live rebuild:

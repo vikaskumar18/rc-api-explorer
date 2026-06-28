@@ -1026,6 +1026,7 @@ div:hover>.cr-pin-btn, div:hover>.cr-action-btn{opacity:1}
         <button class="fb" onclick="setF('Usage',this)">Usage</button>
         <button class="fb" onclick="setF('Billing',this)">Billing</button>
         <button class="fb" onclick="setF('DRO',this)">DRO</button>
+        <button class="fb" onclick="setF('Context',this)">Context</button>
       </div>
     </div>
     <div style="display:flex;gap:4px;padding:3px 8px 4px">

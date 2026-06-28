@@ -2559,4 +2559,315 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     request:'No request body.',
     response:'{\n  "requestIdentifier": "5IRDU000000009i4AA",\n  "success": true,\n  "errors": []\n}' },
+
+  // Context Service
+  { id:'ctx-1', category:'Context', name:'Create Context (POST)', methods:['POST'],
+    path:'/connect/contexts', version:'v59.0',
+    desc:'Create a new runtime context record by submitting a context definition ID, mapping ID, and JSON data payload. Returns a contextId for use in subsequent Context Service calls. Context records created here are single-request lifetime — they cannot pass data across multiple requests.',
+    page:0,
+    params:[
+      {name:'metadata',type:'Object',req:true,location:'body',desc:'(v59.0) Metadata object containing contextDefinitionId (String, req) and mappingId (String, req).'},
+      {name:'data',type:'String',req:true,location:'body',desc:'(v59.0) JSON string payload containing the context-specific data (business objects such as Order, Account, etc.).'},
+    ],
+    request:'{\n  "metadata": {\n    "contextDefinitionId": "{{CONTEXT_DEFINITION_ID}}",\n    "mappingId": "{{CONTEXT_MAPPING_ID}}"\n  },\n  "data": "{\\\"Order\\\":[{\\\"id\\\":\\\"TestOrder123\\\",\\\"businessObjectType\\\":\\\"Order\\\",\\\"Name\\\":\\\"Test Order\\\",\\\"Status\\\":\\\"SHIPPED\\\",\\\"AccountName\\\":\\\"Acme Corp\\\",\\\"OrderItems\\\":[{\\\"id\\\":\\\"TestOrderItem1\\\",\\\"businessObjectType\\\":\\\"OrderItem\\\",\\\"ProductName\\\":\\\"Widget Pro\\\"}]}]}"\n}',
+    response:'{\n  "childBusinessObjectTypes": [\n    "Order"\n  ],\n  "contextDefinitionId": "{{CONTEXT_DEFINITION_ID}}",\n  "contextId": "3729ed60-d16d-41b8-8951-9ad4f6407ad2",\n  "contextMappingId": "{{CONTEXT_MAPPING_ID}}",\n  "isSuccess": true\n}',
+    examples:[
+      { type:'order-context', label:'1 — Create context for an Order',
+        desc:'Load an Order and its OrderItems into a runtime context. Save the contextId from the response for downstream Context Service calls (Query Record, Attribute updates, etc.).',
+        steps:[
+          'Replace CONTEXT_DEFINITION_ID with your Context Definition record ID (starts with 11O)',
+          'Replace CONTEXT_MAPPING_ID with your Context Mapping record ID (starts with 11j)',
+          'Set the data string to your order JSON (must be a JSON-encoded string, not an object)',
+          'Save contextId from the response to use in ctx-2 (GET), ctx-3 (PATCH), ctx-4 (Query)'
+        ],
+        body:'{"metadata":{"contextDefinitionId":"{{CONTEXT_DEFINITION_ID}}","mappingId":"{{CONTEXT_MAPPING_ID}}"},"data":"{\\\"Order\\\":[{\\\"id\\\":\\\"TestOrder123\\\",\\\"businessObjectType\\\":\\\"Order\\\",\\\"Name\\\":\\\"Test Order\\\",\\\"Status\\\":\\\"SHIPPED\\\",\\\"AccountName\\\":\\\"Acme Corp\\\",\\\"OrderItems\\\":[{\\\"id\\\":\\\"TestOrderItem1\\\",\\\"businessObjectType\\\":\\\"OrderItem\\\",\\\"ProductName\\\":\\\"Widget Pro\\\"}]}]}"}'
+      },
+      { type:'account-context', label:'2 — Create context for an Account',
+        desc:'Load an Account record into a runtime context for pricing or qualification. The context definition determines which Account fields are mapped in.',
+        steps:[
+          'Replace CONTEXT_DEFINITION_ID and CONTEXT_MAPPING_ID with your org values',
+          'Set accountId in the data string to a real Account ID from your org',
+          'The returned contextId is passed to downstream APIs that accept a contextId param'
+        ],
+        body:'{"metadata":{"contextDefinitionId":"{{CONTEXT_DEFINITION_ID}}","mappingId":"{{CONTEXT_MAPPING_ID}}"},"data":"{\\\"Account\\\":[{\\\"id\\\":\\\"{{ACCOUNT_ID}}\\\",\\\"businessObjectType\\\":\\\"Account\\\",\\\"Name\\\":\\\"Acme Corp\\\",\\\"Industry\\\":\\\"Manufacturing\\\",\\\"Type\\\":\\\"Customer\\\"}]}"}'
+      },
+    ],
+  },
+
+  { id:'ctx-2', category:'Context', name:'Get / Delete Context', methods:['GET','DELETE'],
+    path:'/connect/contexts/{contextId}', version:'v59.0',
+    desc:'GET: Retrieve full details of a runtime context record by its contextId, including all stored attributes and business object data. DELETE: Remove a context record. Returns HTTP 204 No Content on success.',
+    page:0,
+    params:[
+      {name:'contextId',type:'String',req:true,location:'path',desc:'(v59.0) UUID of the context record. Obtained from ctx-1 Create Context response.'},
+    ],
+    request:'No request body.',
+    response:'{\n  "childBusinessObjectTypes": [\n    "Order"\n  ],\n  "contextDefinitionId": "11Oxx0000006VjNEAU",\n  "contextId": "3729ed60-d16d-41b8-8951-9ad4f6407ad2",\n  "contextMappingId": "11jxx0000004Q83AAE",\n  "isSuccess": true\n}',
+    examples:[
+      { type:'get-context', label:'1 — GET context by ID',
+        desc:'Inspect the stored state of a context record. Useful for debugging — confirm that data was loaded correctly before running pricing or qualification.',
+        steps:[
+          'Replace contextId in the path with the UUID returned by ctx-1 Create Context',
+          'Use GET method',
+          'Response shows contextDefinitionId, contextMappingId, childBusinessObjectTypes, and isSuccess'
+        ],
+        body:''
+      },
+      { type:'delete-context', label:'2 — DELETE context by ID',
+        desc:'Clean up a context record after it is no longer needed. Returns HTTP 204 No Content — no response body.',
+        steps:[
+          'Replace contextId in the path with the UUID to delete',
+          'Use DELETE method',
+          'Expect HTTP 204 with no response body on success'
+        ],
+        body:''
+      },
+    ],
+  },
+
+  { id:'ctx-3', category:'Context', name:'Update Context Attributes (PATCH)', methods:['PATCH'],
+    path:'/connect/contexts/attributes', version:'v59.0',
+    desc:'Update one or more attributes on an existing runtime context record. Specify the contextId, the node path (data path to the parent record), and the attribute name/value pairs to update. Note: if a field is mapped to Account.RecordType.Name, updating RecordType ID does not cascade to the mapped field.',
+    page:0,
+    params:[
+      {name:'contextId',type:'String',req:true,location:'body',desc:'(v59.0) UUID of the context record to update.'},
+      {name:'nodePathAndAttributes',type:'Object[]',req:true,location:'body',desc:'(v59.0) Array of node path + attribute updates. Each entry has nodePath.dataPath[] (path to the record) and attributes[] (name/value pairs to update).'},
+    ],
+    request:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "nodePathAndAttributes": [\n    {\n      "nodePath": {\n        "dataPath": [\n          "TestOrder123"\n        ]\n      },\n      "attributes": [\n        {\n          "attributeName": "Status",\n          "attributeValue": "DISPATCHED"\n        }\n      ]\n    }\n  ]\n}',
+    response:'{\n  "isSuccess": true\n}',
+    examples:[
+      { type:'update-order-status', label:'1 — Update a single Order status',
+        desc:'Change the Status attribute on an Order node within an existing context. Common use case: update order state after a downstream event without recreating the full context.',
+        steps:[
+          'Replace CONTEXT_ID with the contextId from a prior Create Context call',
+          'Set dataPath to the id of the Order record (matches the "id" field set during creation)',
+          'Set attributeName to the field you want to update (must be mapped in the context definition)',
+          'Set attributeValue to the new value'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","nodePathAndAttributes":[{"nodePath":{"dataPath":["TestOrder123"]},"attributes":[{"attributeName":"Status","attributeValue":"DISPATCHED"}]}]}'
+      },
+      { type:'update-multiple-attrs', label:'2 — Update multiple attributes on a child node',
+        desc:'Update more than one attribute in a single PATCH, and target a child node by specifying a multi-element dataPath.',
+        steps:[
+          'Set dataPath to ["ParentId", "ChildId"] to reach a nested OrderItem node',
+          'Add multiple entries to the attributes array',
+          'All updates in one PATCH are atomic — either all succeed or none do'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","nodePathAndAttributes":[{"nodePath":{"dataPath":["TestOrder123","TestOrderItem1"]},"attributes":[{"attributeName":"ProductName","attributeValue":"Widget Pro Max"},{"attributeName":"Quantity","attributeValue":"5"}]}]}'
+      },
+    ],
+  },
+
+  { id:'ctx-4', category:'Context', name:'Query Context Record (POST)', methods:['POST'],
+    path:'/connect/contexts/query-record', version:'v59.0',
+    desc:'Query an existing runtime context record to retrieve its stored attributes and data. Optionally include child records. Filter by business object type or retrieve specific attributes only.',
+    page:0,
+    params:[
+      {name:'children',type:'Boolean',req:false,location:'query',desc:'(v59.0) Whether to include child records (true) or not (false). Default: false.'},
+      {name:'contextId',type:'String',req:true,location:'body',desc:'(v58.0) The ID of the context to query.'},
+      {name:'attributes',type:'String[]',req:false,location:'body',desc:'(v58.0) List of specific attributes to retrieve. If omitted, all attributes are returned.'},
+      {name:'businessObjectTypeFilter',type:'String',req:false,location:'body',desc:'(v58.0) Filter results to only return records of this business object type (e.g. "Account", "Order").'},
+      {name:'queryPath',type:'String[]',req:false,location:'body',desc:'(v58.0) Path to the parent node to scope the query.'},
+    ],
+    request:'{\n  "contextId": "{{CONTEXT_ID}}"\n}',
+    response:'{\n  "contextId": "7bc695bc-f38b-4a94-8a95-0caa50f3da53",\n  "isDone": true,\n  "isSuccess": true,\n  "queryRecords": [\n    {\n      "childQueryRecords": [],\n      "record": {\n        "attributesAndValues": {\n          "Name": "Acme Corp",\n          "Industry": "Manufacturing",\n          "Type": "Prospect"\n        },\n        "businessObjectType": "Account",\n        "childBusinessObjectTypes": [\n          "OpportunityItem",\n          "OrderItem"\n        ],\n        "contextDataRecordId": "003xx000004WhFsAAK",\n        "currentState": "CREATED",\n        "lastUpdatedTimeStamp": "2023-10-11 04:46:13.804"\n      }\n    }\n  ]\n}',
+    examples:[
+      { type:'simple-query', label:'1 — Query all records from a context',
+        desc:'Retrieve everything stored in a context record. Use after Create Context to confirm data was loaded correctly.',
+        steps:[
+          'Replace CONTEXT_ID with the UUID from your Create Context response',
+          'Response returns queryRecords[] with each stored record and its attributesAndValues'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}"}'
+      },
+      { type:'query-with-children', label:'2 — Query with child records included',
+        desc:'Retrieve parent and all nested child records (e.g. Order + OrderItems). Add ?children=true as a query parameter.',
+        steps:[
+          'Set children=true as a query parameter in the URL',
+          'Each queryRecord.childQueryRecords[] will contain nested child data'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}"}'
+      },
+      { type:'query-filtered', label:'3 — Query specific attributes on a business object type',
+        desc:'Retrieve only Account-type records and only the Name and Industry fields, reducing response size.',
+        steps:[
+          'Set businessObjectTypeFilter to filter by a specific type (e.g. "Account")',
+          'Set attributes[] to list only the fields you need',
+          'Use queryPath[] to scope to a specific node in the tree'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","businessObjectTypeFilter":"Account","attributes":["Name","Industry"]}'
+      },
+    ],
+  },
+
+  { id:'ctx-5', category:'Context', name:'Query Record Status (PATCH / POST)', methods:['PATCH','POST'],
+    path:'/connect/contexts/query-record-status', version:'v59.0',
+    desc:'POST: Create processing status records for query data records within a context. PATCH: Update existing processing status and error messages. Body fields are sent directly (no wrapper object).',
+    page:0,
+    params:[
+      {name:'contextId',type:'String',req:true,location:'body',desc:'(v59.0) ID of the context record.'},
+      {name:'queryPaths',type:'Object[]',req:true,location:'body',desc:'(v59.0) Array of path objects, each with a dataPath[] array pointing to the record nodes whose status to create/update.'},
+    ],
+    request:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "queryPaths": [\n    {\n      "dataPath": [\n        "TestOrder123"\n      ]\n    }\n  ]\n}',
+    response:'{\n  "isSuccess": true\n}',
+    examples:[
+      { type:'create-status', label:'1 — POST: Create query record status',
+        desc:'Record processing status for a node within a context. Use after a downstream system has processed a context data record.',
+        steps:[
+          'Use POST method',
+          'Set contextId to the context UUID',
+          'Set queryPaths to the dataPath of each record node whose status you are recording',
+          'Fields are sent directly — no wrapper key needed'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","queryPaths":[{"dataPath":["TestOrder123"]}]}'
+      },
+      { type:'update-status', label:'2 — PATCH: Update query record status',
+        desc:'Update the processing status for existing query data records in a context.',
+        steps:[
+          'Use PATCH method',
+          'Same body structure as POST',
+          'Set contextId and queryPaths to identify the records to update'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","queryPaths":[{"dataPath":["TestOrder123"]}]}'
+      },
+    ],
+  },
+
+  { id:'ctx-6', category:'Context', name:'Clear Runtime Schema Cache (DELETE)', methods:['DELETE'],
+    path:'/connect/context-runtime-schema/clear', version:'v65.0',
+    desc:'Clear the runtime schema cache for a context definition and its associated mappings. Use after updating context definition metadata to force a cache refresh. Returns HTTP 204 No Content on success. If contextMappingNames is omitted, only the default mapping is cleared.',
+    page:0,
+    params:[
+      {name:'contextDefinitionDevlName',type:'String',req:true,location:'query',desc:'(v65.0) Developer name of the context definition whose runtime schema cache should be cleared.'},
+      {name:'contextMappingNames',type:'String[]',req:false,location:'query',desc:'(v65.0) Comma-separated list of context mapping developer names to clear. If omitted, the default mapping for the definition is cleared.'},
+    ],
+    request:'No request body.',
+    response:'HTTP 204 No Content',
+    examples:[
+      { type:'clear-default', label:'1 — Clear default mapping cache',
+        desc:'Clear the schema cache for the default mapping on a context definition. Required after any context definition metadata change in a sandbox before testing in production.',
+        steps:[
+          'Set contextDefinitionDevlName to the Developer Name of your Context Definition (found in Setup → Context Definitions)',
+          'Omit contextMappingNames to clear only the default mapping',
+          'Expect HTTP 204 No Content — no response body'
+        ],
+        body:''
+      },
+      { type:'clear-named-mappings', label:'2 — Clear specific named mappings',
+        desc:'Clear the cache for multiple specific mappings by name. Useful when only certain mappings were changed.',
+        steps:[
+          'Set contextDefinitionDevlName as above',
+          'Add ?contextMappingNames=StandardMapping,CustomMapping to the query string',
+          'Separate multiple mapping names with a comma (no spaces)'
+        ],
+        body:''
+      },
+    ],
+  },
+
+  { id:'ctx-7', category:'Context', name:'List Context Definition Interfaces (GET)', methods:['GET'],
+    path:'/connect/context-definition-interfaces', version:'v62.0',
+    desc:'Retrieve a list of all context definition interfaces in the org and the metadata associated with each. Useful for discovering available interfaces before calling ctx-8 (Get By Name).',
+    page:0,
+    params:[],
+    request:'No request body.',
+    response:'{\n  "contextDefinitionInterfaces": [\n    {\n      "apiName": "CustomerProfile",\n      "label": "Customer Profile",\n      "description": "Standard interface for customer account context"\n    },\n    {\n      "apiName": "OrderContext",\n      "label": "Order Context",\n      "description": "Interface for order lifecycle context"\n    }\n  ]\n}',
+    examples:[
+      { type:'list-interfaces', label:'1 — List all context definition interfaces',
+        desc:'Enumerate every context definition interface in your org. Use the apiName values in the response as the contextDefinitionInterfaceName path parameter for ctx-8.',
+        steps:[
+          'No parameters required — GET with no body',
+          'Response contains contextDefinitionInterfaces[] with apiName, label, description',
+          'Use returned apiName values as path params for ctx-8'
+        ],
+        body:''
+      },
+    ],
+  },
+
+  { id:'ctx-8', category:'Context', name:'Get Context Definition Interface By Name (GET)', methods:['GET'],
+    path:'/connect/context-definition-interfaces/{contextDefinitionInterfaceName}', version:'v62.0',
+    desc:'Retrieve the full metadata for a specific context definition interface by its API name. Returns the interface definition including all attributes, nodes, and mapping structure.',
+    page:0,
+    params:[
+      {name:'contextDefinitionInterfaceName',type:'String',req:true,location:'path',desc:'(v62.0) API name of the context definition interface to retrieve (e.g. "CustomerProfile"). Obtain from ctx-7 List Interfaces.'},
+    ],
+    request:'No request body.',
+    response:'{\n  "apiName": "CustomerProfile",\n  "label": "Customer Profile",\n  "description": "Standard interface for customer account context",\n  "nodes": [\n    {\n      "apiName": "Account",\n      "label": "Account",\n      "attributes": [\n        { "apiName": "Name", "dataType": "String" },\n        { "apiName": "Industry", "dataType": "String" },\n        { "apiName": "BillingCity", "dataType": "String" }\n      ]\n    }\n  ]\n}',
+    examples:[
+      { type:'get-interface', label:'1 — Get interface details by API name',
+        desc:'Retrieve the full structure of a context definition interface. Use to understand which nodes and attributes are available before constructing a context data payload.',
+        steps:[
+          'Replace contextDefinitionInterfaceName in the path with the interface API name (from ctx-7)',
+          'Example: /connect/context-definition-interfaces/CustomerProfile',
+          'Response shows all nodes and their attribute definitions'
+        ],
+        body:''
+      },
+    ],
+  },
+
+  { id:'ctx-9', category:'Context', name:'Create Query Tags (POST)', methods:['POST'],
+    path:'/connect/contexts/query-tags', version:'v59.0',
+    desc:'Create query tags within a defined context. Tags enable efficient retrieval of specific data nodes from a context without querying the full record. Specify the contextId and one or more tag names that correspond to business object types in the context.',
+    page:0,
+    params:[
+      {name:'contextId',type:'String',req:true,location:'body',desc:'(v59.0) ID of the context record to create tags within.'},
+      {name:'tags',type:'String[]',req:true,location:'body',desc:'(v59.0) List of query tag names (business object types) to create within the context. Example: ["Order", "Account"].'},
+    ],
+    request:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "tags": [\n    "Order"\n  ]\n}',
+    response:'{\n  "isDone": true,\n  "isSuccess": true,\n  "queryResult": {\n    "Order": {\n      "records": [\n        {\n          "id": "TestOrder123",\n          "businessObjectType": "Order",\n          "attributesAndValues": {\n            "Name": "Test Order",\n            "Status": "SHIPPED"\n          }\n        }\n      ]\n    }\n  }\n}',
+    examples:[
+      { type:'query-order-tag', label:'1 — Query Order tag from a context',
+        desc:'Retrieve all Order nodes stored in an existing context using tag-based lookup. More efficient than a full context record query when you only need a specific business object type.',
+        steps:[
+          'Replace CONTEXT_ID with the contextId from your Create Context call',
+          'Set tags to ["Order"] to retrieve only Order-type records',
+          'Response queryResult is a map of tag name → array of matching records'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","tags":["Order"]}'
+      },
+      { type:'query-multiple-tags', label:'2 — Query multiple tags in one call',
+        desc:'Retrieve Account and Order nodes from the same context in a single request.',
+        steps:[
+          'Add multiple entries to the tags array',
+          'Response queryResult will have a key for each tag with its matching records',
+          'Tags that have no matching records return an empty records array'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","tags":["Account","Order"]}'
+      },
+    ],
+  },
+
+  { id:'ctx-10', category:'Context', name:'Write Through Tags (PATCH)', methods:['PATCH'],
+    path:'/connect/contexts/write-through-tags', version:'v63.0',
+    desc:'Update Context Attributes through tags. Use this to update field values on context records via tag name/value pairs rather than direct attribute paths. Supports updating multiple nodes in a single call.',
+    page:0,
+    params:[
+      {name:'contextId',type:'String',req:true,location:'body',desc:'(v63.0) ID of the context record to update.'},
+      {name:'nodePathAndTagValues',type:'Object[]',req:true,location:'body',desc:'(v63.0) Array of node path + tag values. Each entry has nodePath.dataPath[] (path to the target record) and tagValues[] (each with tagName and tagValue to set).'},
+    ],
+    request:'{\n  "contextId": "{{CONTEXT_ID}}",\n  "nodePathAndTagValues": [\n    {\n      "nodePath": {\n        "dataPath": [\n          "{{ACCOUNT_ID}}"\n        ]\n      },\n      "tagValues": [\n        {\n          "tagName": "Name",\n          "tagValue": "Updated Account Name"\n        },\n        {\n          "tagName": "City",\n          "tagValue": "San Francisco"\n        }\n      ]\n    }\n  ]\n}',
+    response:'{\n  "isSuccess": true\n}',
+    examples:[
+      { type:'update-account-tags', label:'1 — Update Account attributes via tags',
+        desc:'Update the Name and City on an Account node in the context using write-through tags. Unlike ctx-3 (direct attribute update), this uses tag names which are mapped in the context definition.',
+        steps:[
+          'Replace CONTEXT_ID with the UUID from your Create Context call',
+          'Set dataPath to the Account record ID that was loaded into the context',
+          'Each tagValues entry maps a tag name (as defined in the context definition) to its new value'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","nodePathAndTagValues":[{"nodePath":{"dataPath":["{{ACCOUNT_ID}}"]},"tagValues":[{"tagName":"Name","tagValue":"Updated Account Name"},{"tagName":"City","tagValue":"San Francisco"}]}]}'
+      },
+      { type:'update-multiple-nodes', label:'2 — Update multiple nodes in one call',
+        desc:'Update attributes on different records (e.g. Account and its child OrderItem) in a single PATCH. Each entry in nodePathAndTagValues targets a different node.',
+        steps:[
+          'Add multiple entries to nodePathAndTagValues, each with its own nodePath and tagValues',
+          'Entries are applied atomically — all succeed or all fail',
+          'dataPath can be nested, e.g. ["ParentId", "ChildId"] to target a child record'
+        ],
+        body:'{"contextId":"{{CONTEXT_ID}}","nodePathAndTagValues":[{"nodePath":{"dataPath":["{{ACCOUNT_ID}}"]},"tagValues":[{"tagName":"Name","tagValue":"Acme Updated"}]},{"nodePath":{"dataPath":["TestOrder123"]},"tagValues":[{"tagName":"Status","tagValue":"DELIVERED"}]}]}'
+      },
+    ],
+  },
 ];
